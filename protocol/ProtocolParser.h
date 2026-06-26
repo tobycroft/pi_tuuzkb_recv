@@ -18,9 +18,13 @@ constexpr std::uint8_t kFrameHdr2 = 0xAB;
 constexpr std::uint8_t kCmdSendKbGeneralData = 0x12;
 constexpr std::uint8_t kCmdSendKbMediaData   = 0x13;
 constexpr std::uint8_t kCmdSendMsRelData     = 0x15;
+constexpr std::uint8_t kCmdSetParaCfg        = 0x19;
+constexpr std::uint8_t kCmdSetUsbString      = 0x1B;
 
-constexpr std::size_t kMaxFrameSize = 64;
+constexpr std::size_t kMaxFrameSize = 128;
 constexpr std::size_t kHeaderSize   = 5;
+
+constexpr std::size_t kMaxUsbStringLen = 64;
 
 struct KeyboardReport {
     std::uint8_t modifiers;
@@ -41,11 +45,24 @@ struct MouseReport {
     std::int8_t  wheel;
 };
 
+struct ParaCfgData {
+    std::uint16_t vid;
+    std::uint16_t pid;
+};
+
+struct UsbStringData {
+    std::uint8_t  type;
+    std::uint8_t  len;
+    std::array<char, kMaxUsbStringLen> str;
+};
+
 class ProtocolParser {
 public:
-    using KbCallback    = std::function<void(const KeyboardReport&)>;
-    using MediaCallback = std::function<void(const MediaReport&)>;
-    using MouseCallback = std::function<void(const MouseReport&)>;
+    using KbCallback        = std::function<void(const KeyboardReport&)>;
+    using MediaCallback     = std::function<void(const MediaReport&)>;
+    using MouseCallback     = std::function<void(const MouseReport&)>;
+    using ParaCfgCallback   = std::function<void(const ParaCfgData&)>;
+    using UsbStringCallback = std::function<void(const UsbStringData&)>;
 
     ProtocolParser();
     ~ProtocolParser() = default;
@@ -58,6 +75,8 @@ public:
     void setKbCallback(KbCallback cb);
     void setMediaCallback(MediaCallback cb);
     void setMouseCallback(MouseCallback cb);
+    void setParaCfgCallback(ParaCfgCallback cb);
+    void setUsbStringCallback(UsbStringCallback cb);
 
 private:
     enum class State {
@@ -79,9 +98,11 @@ private:
 
     std::array<std::uint8_t, kMaxFrameSize> frame_buf_;
 
-    KbCallback    kb_cb_;
-    MediaCallback media_cb_;
-    MouseCallback mouse_cb_;
+    KbCallback        kb_cb_;
+    MediaCallback     media_cb_;
+    MouseCallback     mouse_cb_;
+    ParaCfgCallback   para_cfg_cb_;
+    UsbStringCallback usb_str_cb_;
 
     void reset();
     void processFrame();

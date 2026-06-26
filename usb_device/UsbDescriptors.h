@@ -6,18 +6,30 @@
 #endif
 
 #include <cstdint>
+#include <array>
 #include "tusb.h"
 
 namespace usb_device {
 
 constexpr std::uint8_t kHidItfNumKeyboard = 0;
 constexpr std::uint8_t kHidItfNumMouse    = 1;
+constexpr std::uint8_t kHidItfNumMedia    = 2;
 
 constexpr std::uint8_t kReportIdKeyboard = 1;
 constexpr std::uint8_t kReportIdMouse    = 2;
 constexpr std::uint8_t kReportIdMedia    = 3;
 
+constexpr std::size_t kMaxUsbStringLen = 64;
+
+constexpr std::uint8_t kStrTypeManufacturer = 0x00;
+constexpr std::uint8_t kStrTypeProduct      = 0x01;
+constexpr std::uint8_t kStrTypeSerial       = 0x02;
+
 bool usb_descriptors_init();
+
+void usb_set_vid_pid(std::uint16_t vid, std::uint16_t pid);
+
+void usb_set_string(std::uint8_t type, const char* str, std::uint8_t len);
 
 } // namespace usb_device
 

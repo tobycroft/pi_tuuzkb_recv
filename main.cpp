@@ -8,12 +8,15 @@
 #include "drivers/uart/UartDriver.h"
 #include "protocol/ProtocolParser.h"
 #include "usb_device/UsbHidDevice.h"
+#include "usb_device/UsbDescriptors.h"
 
 int main() {
     stdio_init_all();
 
     drivers::UartDriver uart;
     uart.init(921600);
+
+    usb_device::usb_descriptors_init();
 
     usb_device::UsbHidDevice hid_device;
     hid_device.init();
@@ -32,7 +35,15 @@ int main() {
         hid_device.sendMouseReport(report);
     });
 
-    std::array<std::uint8_t, 64> rx_buf{};
+    parser.setParaCfgCallback([&](const protocol::ParaCfgData& cfg) {
+        usb_device::usb_set_vid_pid(cfg.vid, cfg.pid);
+    });
+
+    parser.setUsbStringCallback([&](const protocol::UsbStringData& str) {
+        usb_device::usb_set_string(str.type, str.str.data(), str.len);
+    });
+
+    std::array<std::uint8_t, 128> rx_buf{};
 
     while (true) {
         hid_device.task();

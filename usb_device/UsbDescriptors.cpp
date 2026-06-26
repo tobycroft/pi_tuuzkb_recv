@@ -1,14 +1,82 @@
 #include "UsbDescriptors.h"
+#include <cstring>
 
 namespace usb_device {
 
+namespace {
+
+struct UsbConfig {
+    std::uint16_t vid;
+    std::uint16_t pid;
+    std::array<char, kMaxUsbStringLen> manufacturer;
+    std::array<char, kMaxUsbStringLen> product;
+    std::array<char, kMaxUsbStringLen> serial;
+};
+
+UsbConfig g_config = {
+    .vid = 0xCafe,
+    .pid = 0x4001,
+    .manufacturer = {},
+    .product = {},
+    .serial = {}
+};
+
+bool g_initialized = false;
+
+void init_default_strings() {
+    if (g_initialized) return;
+    std::strncpy(g_config.manufacturer.data(), "TuuZKB", kMaxUsbStringLen - 1);
+    g_config.manufacturer[kMaxUsbStringLen - 1] = '\0';
+    std::strncpy(g_config.product.data(), "Pi TuuZKB Recv", kMaxUsbStringLen - 1);
+    g_config.product[kMaxUsbStringLen - 1] = '\0';
+    std::strncpy(g_config.serial.data(), "1234567890", kMaxUsbStringLen - 1);
+    g_config.serial[kMaxUsbStringLen - 1] = '\0';
+    g_initialized = true;
+}
+
+} // namespace
+
 bool usb_descriptors_init() {
+    init_default_strings();
     return true;
+}
+
+void usb_set_vid_pid(std::uint16_t vid, std::uint16_t pid) {
+    init_default_strings();
+    g_config.vid = vid;
+    g_config.pid = pid;
+}
+
+void usb_set_string(std::uint8_t type, const char* str, std::uint8_t len) {
+    init_default_strings();
+    if (str == nullptr || len == 0) return;
+
+    char* dest = nullptr;
+    switch (type) {
+        case kStrTypeManufacturer:
+            dest = g_config.manufacturer.data();
+            break;
+        case kStrTypeProduct:
+            dest = g_config.product.data();
+            break;
+        case kStrTypeSerial:
+            dest = g_config.serial.data();
+            break;
+        default:
+            return;
+    }
+
+    std::size_t copy_len = len;
+    if (copy_len > kMaxUsbStringLen - 1) {
+        copy_len = kMaxUsbStringLen - 1;
+    }
+    std::memcpy(dest, str, copy_len);
+    dest[copy_len] = '\0';
 }
 
 } // namespace usb_device
 
-static tusb_desc_device_t const desc_device = {
+static tusb_desc_device_t desc_device = {
     .bLength            = sizeof(tusb_desc_device_t),
     .bDescriptorType    = TUSB_DESC_DEVICE,
     .bcdUSB             = 0x0200,
@@ -26,6 +94,8 @@ static tusb_desc_device_t const desc_device = {
 };
 
 uint8_t const* tud_descriptor_device_cb(void) {
+    desc_device.idVendor = usb_device::g_config.vid;
+    desc_device.idProduct = usb_device::g_config.pid;
     return (uint8_t const*) &desc_device;
 }
 
@@ -72,17 +142,7 @@ uint8_t const* tud_hid_descriptor_report_cb(uint8_t instance) {
     }
 }
 
-static char const* string_desc_arr [] = {
-    (const char[]) { 0x09, 0x04 },
-    "TuuZKB",
-    "Pi TuuZKB Recv",
-    "1234567890",
-    "Keyboard",
-    "Mouse",
-    "Media Keys",
-};
-
-static uint16_t _desc_str[32];
+static uint16_t _desc_str[64];
 
 uint16_t const* tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
     (void) langid;
@@ -90,12 +150,32 @@ uint16_t const* tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
     uint8_t chr_count;
 
     if ( index == 0) {
-        memcpy(&_desc_str[1], string_desc_arr[0], 2);
+        _desc_str[1] = 0x0409;
         chr_count = 1;
     } else {
-        if ( !(index < sizeof(string_desc_arr)/sizeof(string_desc_arr[0])) ) return NULL;
-
-        const char* str = string_desc_arr[index];
+        const char* str = nullptr;
+        switch (index) {
+            case 1:
+                str = usb_device::g_config.manufacturer.data();
+                break;
+            case 2:
+                str = usb_device::g_config.product.data();
+                break;
+            case 3:
+                str = usb_device::g_config.serial.data();
+                break;
+            case 4:
+                str = "Keyboard";
+                break;
+            case 5:
+                str = "Mouse";
+                break;
+            case 6:
+                str = "Media Keys";
+                break;
+            default:
+                return NULL;
+        }
 
         chr_count = strlen(str);
         if ( chr_count > 31 ) chr_count = 31;

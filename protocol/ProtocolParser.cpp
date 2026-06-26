@@ -12,7 +12,9 @@ ProtocolParser::ProtocolParser()
     , checksum_acc_(0)
     , kb_cb_(nullptr)
     , media_cb_(nullptr)
-    , mouse_cb_(nullptr) {
+    , mouse_cb_(nullptr)
+    , para_cfg_cb_(nullptr)
+    , usb_str_cb_(nullptr) {
     frame_buf_.fill(0);
 }
 
@@ -26,6 +28,14 @@ void ProtocolParser::setMediaCallback(MediaCallback cb) {
 
 void ProtocolParser::setMouseCallback(MouseCallback cb) {
     mouse_cb_ = std::move(cb);
+}
+
+void ProtocolParser::setParaCfgCallback(ParaCfgCallback cb) {
+    para_cfg_cb_ = std::move(cb);
+}
+
+void ProtocolParser::setUsbStringCallback(UsbStringCallback cb) {
+    usb_str_cb_ = std::move(cb);
 }
 
 void ProtocolParser::reset() {
@@ -147,6 +157,34 @@ void ProtocolParser::processFrame() {
                 report.y        = static_cast<std::int8_t>(frame_buf_[3]);
                 report.wheel    = static_cast<std::int8_t>(frame_buf_[4]);
                 if (mouse_cb_) mouse_cb_(report);
+            }
+            break;
+        }
+
+        case kCmdSetParaCfg: {
+            if (data_len_ >= 4) {
+                ParaCfgData cfg{};
+                cfg.vid = (static_cast<std::uint16_t>(frame_buf_[0]) << 8) | frame_buf_[1];
+                cfg.pid = (static_cast<std::uint16_t>(frame_buf_[2]) << 8) | frame_buf_[3];
+                if (para_cfg_cb_) para_cfg_cb_(cfg);
+            }
+            break;
+        }
+
+        case kCmdSetUsbString: {
+            if (data_len_ >= 2) {
+                UsbStringData str{};
+                str.type = frame_buf_[0];
+                str.len = frame_buf_[1];
+                std::size_t copy_len = str.len;
+                if (copy_len > kMaxUsbStringLen - 1) {
+                    copy_len = kMaxUsbStringLen - 1;
+                }
+                for (std::size_t i = 0; i < copy_len; ++i) {
+                    str.str[i] = static_cast<char>(frame_buf_[2 + i]);
+                }
+                str.str[copy_len] = '\0';
+                if (usb_str_cb_) usb_str_cb_(str);
             }
             break;
         }
