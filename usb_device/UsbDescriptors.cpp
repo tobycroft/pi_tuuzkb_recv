@@ -1,11 +1,14 @@
 #include "UsbDescriptors.h"
 #include <cstring>
+#include "hardware/flash.h"
+#include "hardware/sync.h"
 
 namespace usb_device {
 
 namespace {
 
 struct UsbConfig {
+    std::uint32_t magic;
     std::uint16_t vid;
     std::uint16_t pid;
     std::array<char, kMaxUsbStringLen> manufacturer;
@@ -13,7 +16,10 @@ struct UsbConfig {
     std::array<char, kMaxUsbStringLen> serial;
 };
 
+static_assert(sizeof(UsbConfig) <= FLASH_PAGE_SIZE, "UsbConfig must fit in a flash page");
+
 UsbConfig g_config = {
+    .magic = kConfigMagic,
     .vid = 0xCafe,
     .pid = 0x4001,
     .manufacturer = {},
@@ -23,32 +29,82 @@ UsbConfig g_config = {
 
 bool g_initialized = false;
 
-void init_default_strings() {
-    if (g_initialized) return;
+void write_default_strings() {
     std::strncpy(g_config.manufacturer.data(), "TuuZKB", kMaxUsbStringLen - 1);
     g_config.manufacturer[kMaxUsbStringLen - 1] = '\0';
     std::strncpy(g_config.product.data(), "Pi TuuZKB Recv", kMaxUsbStringLen - 1);
     g_config.product[kMaxUsbStringLen - 1] = '\0';
     std::strncpy(g_config.serial.data(), "1234567890", kMaxUsbStringLen - 1);
     g_config.serial[kMaxUsbStringLen - 1] = '\0';
-    g_initialized = true;
+}
+
+void load_config_from_flash() {
+    const std::uint8_t* flash_ptr =
+        reinterpret_cast<const std::uint8_t*>(XIP_BASE + kConfigFlashOffset);
+    const UsbConfig* stored = reinterpret_cast<const UsbConfig*>(flash_ptr);
+
+    if (stored->magic == kConfigMagic) {
+        g_config.magic = stored->magic;
+        g_config.vid = stored->vid;
+        g_config.pid = stored->pid;
+        std::memcpy(g_config.manufacturer.data(), stored->manufacturer.data(), kMaxUsbStringLen);
+        std::memcpy(g_config.product.data(), stored->product.data(), kMaxUsbStringLen);
+        std::memcpy(g_config.serial.data(), stored->serial.data(), kMaxUsbStringLen);
+        g_config.manufacturer[kMaxUsbStringLen - 1] = '\0';
+        g_config.product[kMaxUsbStringLen - 1] = '\0';
+        g_config.serial[kMaxUsbStringLen - 1] = '\0';
+    } else {
+        write_default_strings();
+    }
+}
+
+bool is_config_same_in_flash() {
+    const std::uint8_t* flash_ptr =
+        reinterpret_cast<const std::uint8_t*>(XIP_BASE + kConfigFlashOffset);
+    const UsbConfig* stored = reinterpret_cast<const UsbConfig*>(flash_ptr);
+
+    if (stored->magic != kConfigMagic) return false;
+    if (stored->vid != g_config.vid) return false;
+    if (stored->pid != g_config.pid) return false;
+    if (std::memcmp(stored->manufacturer.data(), g_config.manufacturer.data(), kMaxUsbStringLen) != 0) return false;
+    if (std::memcmp(stored->product.data(), g_config.product.data(), kMaxUsbStringLen) != 0) return false;
+    if (std::memcmp(stored->serial.data(), g_config.serial.data(), kMaxUsbStringLen) != 0) return false;
+    return true;
+}
+
+void save_config_to_flash() {
+    if (is_config_same_in_flash()) return;
+
+    g_config.magic = kConfigMagic;
+
+    std::uint8_t page_buf[FLASH_PAGE_SIZE];
+    std::memset(page_buf, 0xFF, FLASH_PAGE_SIZE);
+    std::memcpy(page_buf, &g_config, sizeof(UsbConfig));
+
+    std::uint32_t ints = save_and_disable_interrupts();
+    flash_range_erase(kConfigFlashOffset, FLASH_SECTOR_SIZE);
+    flash_range_program(kConfigFlashOffset, page_buf, FLASH_PAGE_SIZE);
+    restore_interrupts(ints);
 }
 
 } // namespace
 
 bool usb_descriptors_init() {
-    init_default_strings();
+    if (g_initialized) return true;
+    load_config_from_flash();
+    g_initialized = true;
     return true;
 }
 
 void usb_set_vid_pid(std::uint16_t vid, std::uint16_t pid) {
-    init_default_strings();
+    if (!g_initialized) load_config_from_flash();
     g_config.vid = vid;
     g_config.pid = pid;
+    save_config_to_flash();
 }
 
 void usb_set_string(std::uint8_t type, const char* str, std::uint8_t len) {
-    init_default_strings();
+    if (!g_initialized) load_config_from_flash();
     if (str == nullptr || len == 0) return;
 
     char* dest = nullptr;
@@ -72,6 +128,7 @@ void usb_set_string(std::uint8_t type, const char* str, std::uint8_t len) {
     }
     std::memcpy(dest, str, copy_len);
     dest[copy_len] = '\0';
+    save_config_to_flash();
 }
 
 } // namespace usb_device

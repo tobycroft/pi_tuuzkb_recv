@@ -25,6 +25,9 @@ constexpr std::uint8_t kStrTypeManufacturer = 0x00;
 constexpr std::uint8_t kStrTypeProduct      = 0x01;
 constexpr std::uint8_t kStrTypeSerial       = 0x02;
 
+constexpr std::uint32_t kConfigFlashOffset = 0x1FF000;
+constexpr std::uint32_t kConfigMagic       = 0x57AB191B;
+
 bool usb_descriptors_init();
 
 void usb_set_vid_pid(std::uint16_t vid, std::uint16_t pid);

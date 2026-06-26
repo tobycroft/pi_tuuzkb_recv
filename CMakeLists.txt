@@ -66,9 +66,10 @@ target_link_libraries(pi_tuuzkb_recv
     pico_stdlib
     hardware_uart
     hardware_gpio
+    hardware_flash
+    hardware_sync
     tinyusb_device
     tinyusb_board
 )
 
 pico_add_extra_outputs(pi_tuuzkb_recv)
-
