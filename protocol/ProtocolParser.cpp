@@ -196,7 +196,10 @@ void ProtocolParser::handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,
                                         const std::uint8_t* data, std::uint8_t len) {
     std::int8_t diff = static_cast<std::int8_t>(index - expected_index_);
 
-    if (diff < 0) {
+    if (diff >= 2 || diff <= -2) {
+        dispatchCommand(cmd, data, len);
+        expected_index_ = static_cast<std::uint8_t>(index + 1);
+        has_cached_ = false;
         return;
     }
 
@@ -222,9 +225,7 @@ void ProtocolParser::handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,
         return;
     }
 
-    dispatchCommand(cmd, data, len);
-    expected_index_ = static_cast<std::uint8_t>(index + 1);
-    has_cached_ = false;
+    // diff == -1: 滞后 1 个，视为重复/迟到，跳过
 }
 
 void ProtocolParser::dispatchCommand(std::uint8_t cmd, const std::uint8_t* data, std::uint8_t len) {
