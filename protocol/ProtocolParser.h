@@ -110,13 +110,20 @@ private:
     };
 
     State state_;
-    std::uint8_t addr_code_;
+    std::uint8_t pkt_index_;
     std::uint8_t cmd_code_;
     std::uint8_t data_len_;
     std::uint8_t data_recv_;
     std::uint8_t checksum_acc_;
 
     std::array<std::uint8_t, kMaxFrameSize> frame_buf_;
+
+    std::uint8_t expected_index_;
+    bool has_cached_;
+    std::uint8_t cached_index_;
+    std::uint8_t cached_cmd_;
+    std::uint8_t cached_data_len_;
+    std::array<std::uint8_t, kMaxFrameSize> cached_data_;
 
     KbCallback        kb_cb_;
     KbSingleKeyCallback kb_single_cb_;
@@ -129,8 +136,11 @@ private:
 
     void reset();
     void processFrame();
+    void dispatchCommand(std::uint8_t cmd, const std::uint8_t* data, std::uint8_t len);
+    void handleOrderedFrame(std::uint8_t index, std::uint8_t cmd,
+                            const std::uint8_t* data, std::uint8_t len);
     static std::uint8_t computeChecksum(std::uint8_t hdr1, std::uint8_t hdr2,
-                                        std::uint8_t addr, std::uint8_t cmd,
+                                        std::uint8_t index, std::uint8_t cmd,
                                         std::uint8_t len,
                                         const std::uint8_t* data);
 };
