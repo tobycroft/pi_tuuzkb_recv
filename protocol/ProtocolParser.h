@@ -32,6 +32,11 @@ struct KeyboardReport {
     std::array<std::uint8_t, 6> keys;
 };
 
+struct KbSingleKeyEvent {
+    std::uint8_t usage;
+    bool pressed;
+};
+
 struct MediaReport {
     std::uint8_t byte1;
     std::uint8_t byte2;
@@ -43,6 +48,15 @@ struct MouseReport {
     std::int8_t  x;
     std::int8_t  y;
     std::int8_t  wheel;
+};
+
+struct MouseMoveEvent {
+    std::int8_t dx;
+    std::int8_t dy;
+};
+
+struct MouseWheelEvent {
+    std::int8_t wheel;
 };
 
 struct ParaCfgData {
@@ -59,8 +73,11 @@ struct UsbStringData {
 class ProtocolParser {
 public:
     using KbCallback        = std::function<void(const KeyboardReport&)>;
+    using KbSingleKeyCallback = std::function<void(const KbSingleKeyEvent&)>;
     using MediaCallback     = std::function<void(const MediaReport&)>;
     using MouseCallback     = std::function<void(const MouseReport&)>;
+    using MouseMoveCallback = std::function<void(const MouseMoveEvent&)>;
+    using MouseWheelCallback = std::function<void(const MouseWheelEvent&)>;
     using ParaCfgCallback   = std::function<void(const ParaCfgData&)>;
     using UsbStringCallback = std::function<void(const UsbStringData&)>;
 
@@ -73,8 +90,11 @@ public:
     void feed(const std::uint8_t* data, std::size_t len);
 
     void setKbCallback(KbCallback cb);
+    void setKbSingleKeyCallback(KbSingleKeyCallback cb);
     void setMediaCallback(MediaCallback cb);
     void setMouseCallback(MouseCallback cb);
+    void setMouseMoveCallback(MouseMoveCallback cb);
+    void setMouseWheelCallback(MouseWheelCallback cb);
     void setParaCfgCallback(ParaCfgCallback cb);
     void setUsbStringCallback(UsbStringCallback cb);
 
@@ -99,8 +119,11 @@ private:
     std::array<std::uint8_t, kMaxFrameSize> frame_buf_;
 
     KbCallback        kb_cb_;
+    KbSingleKeyCallback kb_single_cb_;
     MediaCallback     media_cb_;
     MouseCallback     mouse_cb_;
+    MouseMoveCallback mouse_move_cb_;
+    MouseWheelCallback mouse_wheel_cb_;
     ParaCfgCallback   para_cfg_cb_;
     UsbStringCallback usb_str_cb_;
 

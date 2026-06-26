@@ -59,6 +59,31 @@ void UsbHidDevice::sendMouseReport(const protocol::MouseReport& report) {
     tud_hid_n_mouse_report(1, 2, report.buttons, report.x, report.y, report.wheel, 0);
 }
 
+void UsbHidDevice::handleMouseMove(const protocol::MouseMoveEvent& evt) {
+    if (!initialized_ || !tud_mounted()) return;
+    if (!tud_hid_n_ready(1)) return;
+
+    current_mouse_.x = evt.dx;
+    current_mouse_.y = evt.dy;
+
+    tud_hid_n_mouse_report(1, 2, current_mouse_.buttons,
+                           current_mouse_.x, current_mouse_.y,
+                           current_mouse_.wheel, 0);
+}
+
+void UsbHidDevice::handleMouseWheel(const protocol::MouseWheelEvent& evt) {
+    if (!initialized_ || !tud_mounted()) return;
+    if (!tud_hid_n_ready(1)) return;
+
+    current_mouse_.wheel = evt.wheel;
+    current_mouse_.x = 0;
+    current_mouse_.y = 0;
+
+    tud_hid_n_mouse_report(1, 2, current_mouse_.buttons,
+                           current_mouse_.x, current_mouse_.y,
+                           current_mouse_.wheel, 0);
+}
+
 void UsbHidDevice::sendMediaReport(const protocol::MediaReport& report) {
     if (!initialized_ || !tud_mounted()) return;
 
@@ -68,6 +93,62 @@ void UsbHidDevice::sendMediaReport(const protocol::MediaReport& report) {
 
     uint16_t usage = static_cast<uint16_t>(report.byte1) | (static_cast<uint16_t>(report.byte2) << 8);
     tud_hid_n_report(2, 3, &usage, sizeof(usage));
+}
+
+static std::uint8_t modifier_usage_to_bit(std::uint8_t usage) {
+    if (usage >= 0xE0 && usage <= 0xE7) {
+        return static_cast<std::uint8_t>(1 << (usage - 0xE0));
+    }
+    return 0;
+}
+
+void UsbHidDevice::handleSingleKey(const protocol::KbSingleKeyEvent& evt) {
+    if (!initialized_ || !tud_mounted()) return;
+    if (!tud_hid_n_ready(0)) return;
+
+    std::uint8_t mod_bit = modifier_usage_to_bit(evt.usage);
+    if (mod_bit != 0) {
+        if (evt.pressed) {
+            current_kb_.modifiers |= mod_bit;
+        } else {
+            current_kb_.modifiers &= static_cast<std::uint8_t>(~mod_bit);
+        }
+    } else {
+        if (evt.pressed) {
+            bool already = false;
+            for (auto& k : current_kb_.keys) {
+                if (k == evt.usage) {
+                    already = true;
+                    break;
+                }
+            }
+            if (!already) {
+                bool inserted = false;
+                for (auto& k : current_kb_.keys) {
+                    if (k == 0) {
+                        k = evt.usage;
+                        inserted = true;
+                        break;
+                    }
+                }
+                if (!inserted) {
+                    current_kb_.keys[5] = evt.usage;
+                }
+            }
+        } else {
+            for (auto& k : current_kb_.keys) {
+                if (k == evt.usage) {
+                    k = 0;
+                }
+            }
+        }
+    }
+
+    uint8_t keycode[6];
+    for (int i = 0; i < 6; ++i) {
+        keycode[i] = current_kb_.keys[i];
+    }
+    tud_hid_n_keyboard_report(0, 1, current_kb_.modifiers, keycode);
 }
 
 } // namespace usb_device

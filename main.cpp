@@ -27,12 +27,24 @@ int main() {
         hid_device.sendKeyboardReport(report);
     });
 
+    parser.setKbSingleKeyCallback([&](const protocol::KbSingleKeyEvent& evt) {
+        hid_device.handleSingleKey(evt);
+    });
+
     parser.setMediaCallback([&](const protocol::MediaReport& report) {
         hid_device.sendMediaReport(report);
     });
 
     parser.setMouseCallback([&](const protocol::MouseReport& report) {
         hid_device.sendMouseReport(report);
+    });
+
+    parser.setMouseMoveCallback([&](const protocol::MouseMoveEvent& evt) {
+        hid_device.handleMouseMove(evt);
+    });
+
+    parser.setMouseWheelCallback([&](const protocol::MouseWheelEvent& evt) {
+        hid_device.handleMouseWheel(evt);
     });
 
     parser.setParaCfgCallback([&](const protocol::ParaCfgData& cfg) {

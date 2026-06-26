@@ -11,8 +11,11 @@ ProtocolParser::ProtocolParser()
     , data_recv_(0)
     , checksum_acc_(0)
     , kb_cb_(nullptr)
+    , kb_single_cb_(nullptr)
     , media_cb_(nullptr)
     , mouse_cb_(nullptr)
+    , mouse_move_cb_(nullptr)
+    , mouse_wheel_cb_(nullptr)
     , para_cfg_cb_(nullptr)
     , usb_str_cb_(nullptr) {
     frame_buf_.fill(0);
@@ -22,12 +25,24 @@ void ProtocolParser::setKbCallback(KbCallback cb) {
     kb_cb_ = std::move(cb);
 }
 
+void ProtocolParser::setKbSingleKeyCallback(KbSingleKeyCallback cb) {
+    kb_single_cb_ = std::move(cb);
+}
+
 void ProtocolParser::setMediaCallback(MediaCallback cb) {
     media_cb_ = std::move(cb);
 }
 
 void ProtocolParser::setMouseCallback(MouseCallback cb) {
     mouse_cb_ = std::move(cb);
+}
+
+void ProtocolParser::setMouseMoveCallback(MouseMoveCallback cb) {
+    mouse_move_cb_ = std::move(cb);
+}
+
+void ProtocolParser::setMouseWheelCallback(MouseWheelCallback cb) {
+    mouse_wheel_cb_ = std::move(cb);
 }
 
 void ProtocolParser::setParaCfgCallback(ParaCfgCallback cb) {
@@ -126,14 +141,11 @@ void ProtocolParser::feed(const std::uint8_t* data, std::size_t len) {
 void ProtocolParser::processFrame() {
     switch (cmd_code_) {
         case kCmdSendKbGeneralData: {
-            if (data_len_ >= 8) {
-                KeyboardReport report{};
-                report.modifiers = frame_buf_[0];
-                report.reserved  = frame_buf_[1];
-                for (int i = 0; i < 6; ++i) {
-                    report.keys[i] = frame_buf_[2 + i];
-                }
-                if (kb_cb_) kb_cb_(report);
+            if (data_len_ >= 2) {
+                KbSingleKeyEvent evt{};
+                evt.usage = frame_buf_[0];
+                evt.pressed = (frame_buf_[1] != 0);
+                if (kb_single_cb_) kb_single_cb_(evt);
             }
             break;
         }
@@ -149,14 +161,15 @@ void ProtocolParser::processFrame() {
         }
 
         case kCmdSendMsRelData: {
-            if (data_len_ >= 5) {
-                MouseReport report{};
-                report.reserved = frame_buf_[0];
-                report.buttons  = frame_buf_[1];
-                report.x        = static_cast<std::int8_t>(frame_buf_[2]);
-                report.y        = static_cast<std::int8_t>(frame_buf_[3]);
-                report.wheel    = static_cast<std::int8_t>(frame_buf_[4]);
-                if (mouse_cb_) mouse_cb_(report);
+            if (data_len_ >= 2) {
+                MouseMoveEvent evt{};
+                evt.dx = static_cast<std::int8_t>(frame_buf_[0]);
+                evt.dy = static_cast<std::int8_t>(frame_buf_[1]);
+                if (mouse_move_cb_) mouse_move_cb_(evt);
+            } else if (data_len_ >= 1) {
+                MouseWheelEvent evt{};
+                evt.wheel = static_cast<std::int8_t>(frame_buf_[0]);
+                if (mouse_wheel_cb_) mouse_wheel_cb_(evt);
             }
             break;
         }

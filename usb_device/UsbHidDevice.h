@@ -27,6 +27,11 @@ public:
     void sendMouseReport(const protocol::MouseReport& report);
     void sendMediaReport(const protocol::MediaReport& report);
 
+    void handleMouseMove(const protocol::MouseMoveEvent& evt);
+    void handleMouseWheel(const protocol::MouseWheelEvent& evt);
+
+    void handleSingleKey(const protocol::KbSingleKeyEvent& evt);
+
     bool isMounted() const;
 
 private:
