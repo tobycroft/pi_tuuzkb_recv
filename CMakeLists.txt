@@ -52,7 +52,7 @@ add_executable(pi_tuuzkb_recv
 pico_set_program_name(pi_tuuzkb_recv "pi_tuuzkb_recv")
 pico_set_program_version(pi_tuuzkb_recv "0.1")
 
-pico_enable_stdio_uart(pi_tuuzkb_recv 0)
+pico_enable_stdio_uart(pi_tuuzkb_recv 1)
 pico_enable_stdio_usb(pi_tuuzkb_recv 0)
 
 target_include_directories(pi_tuuzkb_recv PRIVATE

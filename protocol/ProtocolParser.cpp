@@ -11,11 +11,6 @@ ProtocolParser::ProtocolParser()
     , pkt_index_(0)
     , checksum_acc_(0)
     , has_index_(false)
-    , expected_index_(0)
-    , has_cached_(false)
-    , cached_index_(0)
-    , cached_cmd_(0)
-    , cached_data_len_(0)
     , kb_cb_(nullptr)
     , kb_single_cb_(nullptr)
     , media_cb_(nullptr)
@@ -23,9 +18,9 @@ ProtocolParser::ProtocolParser()
     , mouse_move_cb_(nullptr)
     , mouse_wheel_cb_(nullptr)
     , para_cfg_cb_(nullptr)
-    , usb_str_cb_(nullptr) {
+    , usb_str_cb_(nullptr)
+    , checksum_err_cb_(nullptr) {
     frame_buf_.fill(0);
-    cached_data_.fill(0);
 }
 
 void ProtocolParser::setKbCallback(KbCallback cb) {
@@ -58,6 +53,10 @@ void ProtocolParser::setParaCfgCallback(ParaCfgCallback cb) {
 
 void ProtocolParser::setUsbStringCallback(UsbStringCallback cb) {
     usb_str_cb_ = std::move(cb);
+}
+
+void ProtocolParser::setChecksumErrorCallback(ChecksumErrorCallback cb) {
+    checksum_err_cb_ = std::move(cb);
 }
 
 void ProtocolParser::reset() {
@@ -184,6 +183,8 @@ void ProtocolParser::feed(const std::uint8_t* data, std::size_t len) {
                     } else {
                         dispatchCommand(cmd_code_, frame_buf_.data(), data_recv_);
                     }
+                } else {
+                    if (checksum_err_cb_) checksum_err_cb_();
                 }
                 reset();
                 break;
@@ -194,38 +195,8 @@ void ProtocolParser::feed(const std::uint8_t* data, std::size_t len) {
 
 void ProtocolParser::handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,
                                         const std::uint8_t* data, std::uint8_t len) {
-    std::int8_t diff = static_cast<std::int8_t>(index - expected_index_);
-
-    if (diff >= 2 || diff <= -2) {
-        dispatchCommand(cmd, data, len);
-        expected_index_ = static_cast<std::uint8_t>(index + 1);
-        has_cached_ = false;
-        return;
-    }
-
-    if (diff == 0) {
-        dispatchCommand(cmd, data, len);
-        expected_index_++;
-        if (has_cached_ && cached_index_ == expected_index_) {
-            dispatchCommand(cached_cmd_, cached_data_.data(), cached_data_len_);
-            expected_index_++;
-            has_cached_ = false;
-        }
-        return;
-    }
-
-    if (diff == 1) {
-        if (!has_cached_) {
-            cached_index_ = index;
-            cached_cmd_ = cmd;
-            cached_data_len_ = len;
-            std::memcpy(cached_data_.data(), data, len);
-            has_cached_ = true;
-        }
-        return;
-    }
-
-    // diff == -1: 滞后 1 个，视为重复/迟到，跳过
+    (void)index;
+    dispatchCommand(cmd, data, len);
 }
 
 void ProtocolParser::dispatchCommand(std::uint8_t cmd, const std::uint8_t* data, std::uint8_t len) {

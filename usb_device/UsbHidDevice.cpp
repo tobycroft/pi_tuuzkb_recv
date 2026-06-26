@@ -1,6 +1,6 @@
 #include "UsbHidDevice.h"
-#include "bsp/board.h"
 #include "tusb.h"
+#include "bsp/board.h"
 
 namespace usb_device {
 

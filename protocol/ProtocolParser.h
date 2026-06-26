@@ -86,6 +86,7 @@ public:
     using MouseWheelCallback = std::function<void(const MouseWheelEvent&)>;
     using ParaCfgCallback   = std::function<void(const ParaCfgData&)>;
     using UsbStringCallback = std::function<void(const UsbStringData&)>;
+    using ChecksumErrorCallback = std::function<void()>;
 
     ProtocolParser();
     ~ProtocolParser() = default;
@@ -103,6 +104,7 @@ public:
     void setMouseWheelCallback(MouseWheelCallback cb);
     void setParaCfgCallback(ParaCfgCallback cb);
     void setUsbStringCallback(UsbStringCallback cb);
+    void setChecksumErrorCallback(ChecksumErrorCallback cb);
 
 private:
     enum class State {
@@ -124,13 +126,6 @@ private:
 
     std::array<std::uint8_t, kMaxFrameSize> frame_buf_;
 
-    std::uint8_t expected_index_;
-    bool has_cached_;
-    std::uint8_t cached_index_;
-    std::uint8_t cached_cmd_;
-    std::uint8_t cached_data_len_;
-    std::array<std::uint8_t, kMaxFrameSize> cached_data_;
-
     KbCallback        kb_cb_;
     KbSingleKeyCallback kb_single_cb_;
     MediaCallback     media_cb_;
@@ -139,6 +134,7 @@ private:
     MouseWheelCallback mouse_wheel_cb_;
     ParaCfgCallback   para_cfg_cb_;
     UsbStringCallback usb_str_cb_;
+    ChecksumErrorCallback checksum_err_cb_;
 
     void reset();
     void dispatchCommand(std::uint8_t cmd, const std::uint8_t* data, std::uint8_t len);
