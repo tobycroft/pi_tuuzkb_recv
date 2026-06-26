@@ -5,11 +5,12 @@ namespace protocol {
 
 ProtocolParser::ProtocolParser()
     : state_(State::WaitHdr1)
-    , pkt_index_(0)
     , cmd_code_(0)
-    , data_len_(0)
+    , expected_data_len_(0)
     , data_recv_(0)
+    , pkt_index_(0)
     , checksum_acc_(0)
+    , has_index_(false)
     , expected_index_(0)
     , has_cached_(false)
     , cached_index_(0)
@@ -63,17 +64,30 @@ void ProtocolParser::reset() {
     state_ = State::WaitHdr1;
     data_recv_ = 0;
     checksum_acc_ = 0;
+    has_index_ = false;
+    expected_data_len_ = 0;
 }
 
-std::uint8_t ProtocolParser::computeChecksum(std::uint8_t hdr1, std::uint8_t hdr2,
-                                              std::uint8_t index, std::uint8_t cmd,
-                                              std::uint8_t len,
-                                              const std::uint8_t* data) {
-    std::uint16_t sum = hdr1 + hdr2 + index + cmd + len;
-    for (std::uint8_t i = 0; i < len; ++i) {
-        sum += data[i];
+bool ProtocolParser::cmdHasIndex(std::uint8_t cmd) {
+    return cmd == kCmdSendKbGeneralData
+        || cmd == kCmdSendKbMediaData
+        || cmd == kCmdSendMsRelMoveData
+        || cmd == kCmdSendMsRelWheelData;
+}
+
+static std::uint8_t getFixedDataLen(std::uint8_t cmd) {
+    switch (cmd) {
+        case kCmdSendKbGeneralData:  return kKbGeneralDataLen;
+        case kCmdSendKbMediaData:    return kKbMediaDataLen;
+        case kCmdSendMsRelMoveData:  return kMsRelMoveLen;
+        case kCmdSendMsRelWheelData: return kMsRelWheelLen;
+        case kCmdSetParaCfg:         return kParaCfgLen;
+        default:                     return 0;
     }
-    return static_cast<std::uint8_t>(sum & 0xFF);
+}
+
+static bool isVariableLenCmd(std::uint8_t cmd) {
+    return cmd == kCmdSetUsbString;
 }
 
 void ProtocolParser::feed(const std::uint8_t* data, std::size_t len) {
@@ -93,32 +107,39 @@ void ProtocolParser::feed(const std::uint8_t* data, std::size_t len) {
             case State::WaitHdr2:
                 if (byte == kFrameHdr2) {
                     checksum_acc_ += byte;
-                    state_ = State::WaitAddr;
+                    state_ = State::WaitCmd;
                 } else {
                     reset();
                 }
                 break;
 
-            case State::WaitAddr:
-                pkt_index_ = byte;
-                checksum_acc_ += byte;
-                state_ = State::WaitCmd;
-                break;
-
             case State::WaitCmd:
                 cmd_code_ = byte;
                 checksum_acc_ += byte;
-                state_ = State::WaitLen;
-                break;
-
-            case State::WaitLen:
-                data_len_ = byte;
-                checksum_acc_ += byte;
+                has_index_ = cmdHasIndex(cmd_code_);
                 data_recv_ = 0;
-                if (data_len_ == 0) {
-                    state_ = State::WaitChecksum;
-                } else if (data_len_ > kMaxFrameSize) {
+
+                if (isVariableLenCmd(cmd_code_)) {
+                    expected_data_len_ = kMaxFrameSize;
+                } else {
+                    expected_data_len_ = getFixedDataLen(cmd_code_);
+                    if (expected_data_len_ == 0) {
+                        reset();
+                        break;
+                    }
+                }
+
+                if (expected_data_len_ > kMaxFrameSize) {
                     reset();
+                    break;
+                }
+
+                if (expected_data_len_ == 0) {
+                    if (has_index_) {
+                        state_ = State::WaitIndex;
+                    } else {
+                        state_ = State::WaitChecksum;
+                    }
                 } else {
                     state_ = State::WaitData;
                 }
@@ -127,15 +148,42 @@ void ProtocolParser::feed(const std::uint8_t* data, std::size_t len) {
             case State::WaitData:
                 frame_buf_[data_recv_++] = byte;
                 checksum_acc_ += byte;
-                if (data_recv_ >= data_len_) {
-                    state_ = State::WaitChecksum;
+
+                if (isVariableLenCmd(cmd_code_)) {
+                    if (data_recv_ >= 2) {
+                        std::uint8_t str_len = frame_buf_[1];
+                        std::uint8_t total_len = 2 + str_len;
+                        if (total_len > kMaxFrameSize) {
+                            reset();
+                            break;
+                        }
+                        expected_data_len_ = total_len;
+                    }
                 }
+
+                if (data_recv_ >= expected_data_len_) {
+                    if (has_index_) {
+                        state_ = State::WaitIndex;
+                    } else {
+                        state_ = State::WaitChecksum;
+                    }
+                }
+                break;
+
+            case State::WaitIndex:
+                pkt_index_ = byte;
+                checksum_acc_ += byte;
+                state_ = State::WaitChecksum;
                 break;
 
             case State::WaitChecksum: {
                 std::uint8_t expected = static_cast<std::uint8_t>(checksum_acc_ & 0xFF);
                 if (byte == expected) {
-                    handleOrderedFrame(pkt_index_, cmd_code_, frame_buf_.data(), data_len_);
+                    if (has_index_) {
+                        handleIndexedFrame(pkt_index_, cmd_code_, frame_buf_.data(), data_recv_);
+                    } else {
+                        dispatchCommand(cmd_code_, frame_buf_.data(), data_recv_);
+                    }
                 }
                 reset();
                 break;
@@ -144,13 +192,15 @@ void ProtocolParser::feed(const std::uint8_t* data, std::size_t len) {
     }
 }
 
-void ProtocolParser::handleOrderedFrame(std::uint8_t index, std::uint8_t cmd,
+void ProtocolParser::handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,
                                         const std::uint8_t* data, std::uint8_t len) {
-    if (index < expected_index_) {
+    std::int8_t diff = static_cast<std::int8_t>(index - expected_index_);
+
+    if (diff < 0) {
         return;
     }
 
-    if (index == expected_index_) {
+    if (diff == 0) {
         dispatchCommand(cmd, data, len);
         expected_index_++;
         if (has_cached_ && cached_index_ == expected_index_) {
@@ -161,7 +211,7 @@ void ProtocolParser::handleOrderedFrame(std::uint8_t index, std::uint8_t cmd,
         return;
     }
 
-    if (index == expected_index_ + 1) {
+    if (diff == 1) {
         if (!has_cached_) {
             cached_index_ = index;
             cached_cmd_ = cmd;
@@ -169,14 +219,6 @@ void ProtocolParser::handleOrderedFrame(std::uint8_t index, std::uint8_t cmd,
             std::memcpy(cached_data_.data(), data, len);
             has_cached_ = true;
         }
-        return;
-    }
-
-    if (index == expected_index_ + 2 && has_cached_) {
-        dispatchCommand(cached_cmd_, cached_data_.data(), cached_data_len_);
-        dispatchCommand(cmd, data, len);
-        expected_index_ = static_cast<std::uint8_t>(index + 1);
-        has_cached_ = false;
         return;
     }
 
@@ -188,7 +230,7 @@ void ProtocolParser::handleOrderedFrame(std::uint8_t index, std::uint8_t cmd,
 void ProtocolParser::dispatchCommand(std::uint8_t cmd, const std::uint8_t* data, std::uint8_t len) {
     switch (cmd) {
         case kCmdSendKbGeneralData: {
-            if (len >= 2) {
+            if (len >= kKbGeneralDataLen) {
                 KbSingleKeyEvent evt{};
                 evt.usage = data[0];
                 evt.pressed = (data[1] != 0);
@@ -198,7 +240,7 @@ void ProtocolParser::dispatchCommand(std::uint8_t cmd, const std::uint8_t* data,
         }
 
         case kCmdSendKbMediaData: {
-            if (len >= 2) {
+            if (len >= kKbMediaDataLen) {
                 MediaReport report{};
                 report.byte1 = data[0];
                 report.byte2 = data[1];
@@ -207,13 +249,18 @@ void ProtocolParser::dispatchCommand(std::uint8_t cmd, const std::uint8_t* data,
             break;
         }
 
-        case kCmdSendMsRelData: {
-            if (len >= 2) {
+        case kCmdSendMsRelMoveData: {
+            if (len >= kMsRelMoveLen) {
                 MouseMoveEvent evt{};
                 evt.dx = static_cast<std::int8_t>(data[0]);
                 evt.dy = static_cast<std::int8_t>(data[1]);
                 if (mouse_move_cb_) mouse_move_cb_(evt);
-            } else if (len >= 1) {
+            }
+            break;
+        }
+
+        case kCmdSendMsRelWheelData: {
+            if (len >= kMsRelWheelLen) {
                 MouseWheelEvent evt{};
                 evt.wheel = static_cast<std::int8_t>(data[0]);
                 if (mouse_wheel_cb_) mouse_wheel_cb_(evt);
@@ -222,7 +269,7 @@ void ProtocolParser::dispatchCommand(std::uint8_t cmd, const std::uint8_t* data,
         }
 
         case kCmdSetParaCfg: {
-            if (len >= 4) {
+            if (len >= kParaCfgLen) {
                 ParaCfgData cfg{};
                 cfg.vid = (static_cast<std::uint16_t>(data[0]) << 8) | data[1];
                 cfg.pid = (static_cast<std::uint16_t>(data[2]) << 8) | data[3];
@@ -232,7 +279,7 @@ void ProtocolParser::dispatchCommand(std::uint8_t cmd, const std::uint8_t* data,
         }
 
         case kCmdSetUsbString: {
-            if (len >= 2) {
+            if (len >= kUsbStringMinLen) {
                 UsbStringData str{};
                 str.type = data[0];
                 str.len = data[1];
@@ -252,9 +299,6 @@ void ProtocolParser::dispatchCommand(std::uint8_t cmd, const std::uint8_t* data,
         default:
             break;
     }
-}
-
-void ProtocolParser::processFrame() {
 }
 
 } // namespace protocol

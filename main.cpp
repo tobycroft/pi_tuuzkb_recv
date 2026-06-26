@@ -14,7 +14,7 @@ int main() {
     stdio_init_all();
 
     drivers::UartDriver uart;
-    uart.init(921600);
+    uart.init(300000);
 
     usb_device::usb_descriptors_init();
 

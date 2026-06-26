@@ -15,16 +15,22 @@ namespace protocol {
 constexpr std::uint8_t kFrameHdr1 = 0x57;
 constexpr std::uint8_t kFrameHdr2 = 0xAB;
 
-constexpr std::uint8_t kCmdSendKbGeneralData = 0x12;
-constexpr std::uint8_t kCmdSendKbMediaData   = 0x13;
-constexpr std::uint8_t kCmdSendMsRelData     = 0x15;
-constexpr std::uint8_t kCmdSetParaCfg        = 0x19;
-constexpr std::uint8_t kCmdSetUsbString      = 0x1B;
+constexpr std::uint8_t kCmdSendKbGeneralData  = 0x12;
+constexpr std::uint8_t kCmdSendKbMediaData    = 0x13;
+constexpr std::uint8_t kCmdSendMsRelMoveData  = 0x15;
+constexpr std::uint8_t kCmdSendMsRelWheelData = 0x16;
+constexpr std::uint8_t kCmdSetParaCfg         = 0x19;
+constexpr std::uint8_t kCmdSetUsbString       = 0x1B;
 
 constexpr std::size_t kMaxFrameSize = 128;
-constexpr std::size_t kHeaderSize   = 5;
-
 constexpr std::size_t kMaxUsbStringLen = 64;
+
+constexpr std::size_t kKbGeneralDataLen = 2;
+constexpr std::size_t kKbMediaDataLen   = 2;
+constexpr std::size_t kMsRelMoveLen     = 2;
+constexpr std::size_t kMsRelWheelLen    = 1;
+constexpr std::size_t kParaCfgLen       = 4;
+constexpr std::size_t kUsbStringMinLen  = 2;
 
 struct KeyboardReport {
     std::uint8_t modifiers;
@@ -102,19 +108,19 @@ private:
     enum class State {
         WaitHdr1,
         WaitHdr2,
-        WaitAddr,
         WaitCmd,
-        WaitLen,
         WaitData,
+        WaitIndex,
         WaitChecksum
     };
 
     State state_;
-    std::uint8_t pkt_index_;
     std::uint8_t cmd_code_;
-    std::uint8_t data_len_;
+    std::uint8_t expected_data_len_;
     std::uint8_t data_recv_;
+    std::uint8_t pkt_index_;
     std::uint8_t checksum_acc_;
+    bool has_index_;
 
     std::array<std::uint8_t, kMaxFrameSize> frame_buf_;
 
@@ -135,14 +141,10 @@ private:
     UsbStringCallback usb_str_cb_;
 
     void reset();
-    void processFrame();
     void dispatchCommand(std::uint8_t cmd, const std::uint8_t* data, std::uint8_t len);
-    void handleOrderedFrame(std::uint8_t index, std::uint8_t cmd,
+    void handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,
                             const std::uint8_t* data, std::uint8_t len);
-    static std::uint8_t computeChecksum(std::uint8_t hdr1, std::uint8_t hdr2,
-                                        std::uint8_t index, std::uint8_t cmd,
-                                        std::uint8_t len,
-                                        const std::uint8_t* data);
+    static bool cmdHasIndex(std::uint8_t cmd);
 };
 
 } // namespace protocol
