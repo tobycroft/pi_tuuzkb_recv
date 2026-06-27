@@ -1,5 +1,5 @@
-#ifndef DRIVERS_UART_UARTDRIVER_H
-#define DRIVERS_UART_UARTDRIVER_H
+#ifndef UART_UARTDRIVER_H
+#define UART_UARTDRIVER_H
 
 #if __cplusplus < 201703L
 #error "UartDriver requires C++17 or later"
@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <cstddef>
 
-namespace drivers {
+namespace uart {
 
 class UartDriver {
 public:
@@ -33,6 +33,6 @@ private:
     static constexpr std::uint8_t kRXPin = 1;
 };
 
-} // namespace drivers
+} // namespace uart
 
-#endif // DRIVERS_UART_UARTDRIVER_H
+#endif // UART_UARTDRIVER_H

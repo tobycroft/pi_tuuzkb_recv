@@ -6,7 +6,7 @@
 #include "pico/bootrom.h"
 #include "hardware/gpio.h"
 
-#include "drivers/uart/UartDriver.h"
+#include "uart/UartDriver.h"
 #include "protocol/ProtocolParser.h"
 #include "usb_device/UsbHidDevice.h"
 #include "usb_device/UsbDescriptors.h"
@@ -29,7 +29,7 @@ int main() {
     absolute_time_t btn_press_time{};
     bool btn_was_pressed = false;
 
-    drivers::UartDriver uart;
+    uart::UartDriver uart;
     uart.init(300000);
 
     usb_device::usb_descriptors_init();

@@ -4,7 +4,7 @@
 #include "hardware/uart.h"
 #include "hardware/gpio.h"
 
-namespace drivers {
+namespace uart {
 
 UartDriver::UartDriver() : initialized_(false) {}
 
@@ -48,4 +48,4 @@ void UartDriver::write(const std::uint8_t* data, std::size_t len) {
     uart_write_blocking(uart0, data, len);
 }
 
-} // namespace drivers
+} // namespace uart
