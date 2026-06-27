@@ -197,8 +197,8 @@ void ProtocolParser::feed(const std::uint8_t* data, std::size_t len) {
 
             case State::WaitChecksum: {
                 std::uint8_t expected = static_cast<std::uint8_t>(checksum_acc_ & 0xFF);
-                if (byte == expected) {
-                    frame_received_ = true;
+                bool checksum_ok = (byte == expected);
+                if (checksum_ok) {
                     if (has_index_) {
                         handleIndexedFrame(pkt_index_, cmd_code_, frame_buf_.data(), data_recv_);
                     } else {
@@ -214,6 +214,9 @@ void ProtocolParser::feed(const std::uint8_t* data, std::size_t len) {
                     }
                 }
                 reset();
+                if (checksum_ok) {
+                    frame_received_ = true;
+                }
                 break;
             }
         }
