@@ -86,6 +86,17 @@ int main() {
         uart.write(err_pkt.data(), err_pkt.size());
     });
 
+    parser.setIndexLossCallback([&](std::uint8_t lost_index) {
+        std::array<std::uint8_t, 5> loss_pkt{};
+        loss_pkt[0] = 0x57;
+        loss_pkt[1] = 0xAB;
+        loss_pkt[2] = protocol::kCmdIndexLoss;
+        loss_pkt[3] = lost_index;
+        loss_pkt[4] = static_cast<std::uint8_t>(
+            (0x57 + 0xAB + protocol::kCmdIndexLoss + lost_index) & 0xFF);
+        uart.write(loss_pkt.data(), loss_pkt.size());
+    });
+
     std::array<std::uint8_t, 128> rx_buf{};
 
     absolute_time_t last_uart_rx{};

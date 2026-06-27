@@ -23,6 +23,7 @@ constexpr std::uint8_t kCmdSetParaCfg         = 0x19;
 constexpr std::uint8_t kCmdSetUsbString       = 0x1B;
 
 constexpr std::uint8_t kCmdError              = 0xE2;
+constexpr std::uint8_t kCmdIndexLoss          = 0xE1;
 
 constexpr std::size_t kErrorPacketLen = 4;
 
@@ -97,6 +98,7 @@ public:
     using ParaCfgCallback   = std::function<void(const ParaCfgData&)>;
     using UsbStringCallback = std::function<void(const UsbStringData&)>;
     using ChecksumErrorCallback = std::function<void(const ChecksumErrorInfo&)>;
+    using IndexLossCallback    = std::function<void(std::uint8_t lost_index)>;
 
     ProtocolParser();
     ~ProtocolParser() = default;
@@ -115,6 +117,7 @@ public:
     void setParaCfgCallback(ParaCfgCallback cb);
     void setUsbStringCallback(UsbStringCallback cb);
     void setChecksumErrorCallback(ChecksumErrorCallback cb);
+    void setIndexLossCallback(IndexLossCallback cb);
 
 private:
     enum class State {
@@ -145,6 +148,7 @@ private:
     ParaCfgCallback   para_cfg_cb_;
     UsbStringCallback usb_str_cb_;
     ChecksumErrorCallback checksum_err_cb_;
+    IndexLossCallback    idx_loss_cb_;
 
     void reset();
     void dispatchCommand(std::uint8_t cmd, const std::uint8_t* data, std::uint8_t len);

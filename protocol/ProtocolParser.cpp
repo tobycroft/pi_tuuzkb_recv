@@ -20,6 +20,7 @@ ProtocolParser::ProtocolParser()
     , para_cfg_cb_(nullptr)
     , usb_str_cb_(nullptr)
     , checksum_err_cb_(nullptr)
+    , idx_loss_cb_(nullptr)
     , last_idx_(0)
     , idx_initialized_(false)
     , has_pending_(false)
@@ -64,6 +65,10 @@ void ProtocolParser::setUsbStringCallback(UsbStringCallback cb) {
 
 void ProtocolParser::setChecksumErrorCallback(ChecksumErrorCallback cb) {
     checksum_err_cb_ = std::move(cb);
+}
+
+void ProtocolParser::setIndexLossCallback(IndexLossCallback cb) {
+    idx_loss_cb_ = std::move(cb);
 }
 
 void ProtocolParser::reset() {
@@ -230,12 +235,19 @@ void ProtocolParser::handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,
     }
 
     if (has_pending_) {
+        if (index == pending_idx_) {
+            return;
+        }
+
         if (index == static_cast<std::uint8_t>(last_idx_ + 1)) {
             dispatchCommand(cmd, data, len);
             executePendingFrame();
             last_idx_ = pending_idx_;
             has_pending_ = false;
         } else {
+            if (idx_loss_cb_) {
+                idx_loss_cb_(static_cast<std::uint8_t>(last_idx_ + 1));
+            }
             has_pending_ = false;
             dispatchCommand(cmd, data, len);
             last_idx_ = index;
@@ -255,6 +267,9 @@ void ProtocolParser::handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,
         }
         has_pending_ = true;
     } else {
+        if (idx_loss_cb_) {
+            idx_loss_cb_(static_cast<std::uint8_t>(last_idx_ + 1));
+        }
         dispatchCommand(cmd, data, len);
         last_idx_ = index;
     }
