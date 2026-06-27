@@ -119,6 +119,11 @@ public:
     void setChecksumErrorCallback(ChecksumErrorCallback cb);
     void setIndexLossCallback(IndexLossCallback cb);
 
+    bool hasReceivedValidFrame() const { return frame_received_; }
+    void clearFrameReceivedFlag() { frame_received_ = false; }
+
+    void reset();
+
 private:
     enum class State {
         WaitHdr1,
@@ -150,7 +155,6 @@ private:
     ChecksumErrorCallback checksum_err_cb_;
     IndexLossCallback    idx_loss_cb_;
 
-    void reset();
     void dispatchCommand(std::uint8_t cmd, const std::uint8_t* data, std::uint8_t len);
     void handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,
                             const std::uint8_t* data, std::uint8_t len);
@@ -171,6 +175,8 @@ private:
     std::array<std::uint8_t, kRecentIdxSize> recent_idxs_;
     std::uint8_t recent_idx_pos_;
     std::uint8_t recent_idx_count_;
+
+    bool frame_received_ = false;
 };
 
 } // namespace protocol

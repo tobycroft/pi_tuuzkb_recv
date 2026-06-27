@@ -28,6 +28,18 @@ void UartDriver::init(std::uint32_t baud_rate) {
     initialized_ = true;
 }
 
+void UartDriver::setBaudRate(std::uint32_t baud_rate) {
+    if (!initialized_) return;
+    uart_set_baudrate(uart0, baud_rate);
+}
+
+void UartDriver::flushRx() {
+    if (!initialized_) return;
+    while (uart_is_readable(uart0)) {
+        uart_getc(uart0);
+    }
+}
+
 std::size_t UartDriver::read(std::uint8_t* buf, std::size_t len) {
     if (!initialized_ || buf == nullptr || len == 0) return 0;
 

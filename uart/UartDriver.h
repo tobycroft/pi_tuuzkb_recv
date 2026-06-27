@@ -20,6 +20,10 @@ public:
 
     void init(std::uint32_t baud_rate);
 
+    void setBaudRate(std::uint32_t baud_rate);
+
+    void flushRx();
+
     std::size_t read(std::uint8_t* buf, std::size_t len);
 
     bool isReadable() const;

@@ -30,7 +30,44 @@ int main() {
     bool btn_was_pressed = false;
 
     uart::UartDriver uart;
-    uart.init(300000);
+    uart.init(9600);
+
+    // ===== 自动波特率协商 =====
+    // 依次尝试 9600 → 115200 → 300000 → 921600
+    // 每个波特率监听 500ms，收到完整有效的 57AB 帧即锁定
+    constexpr std::array<std::uint32_t, 4> kBaudRates = {9600, 115200, 300000, 921600};
+    constexpr std::int64_t kBaudTimeoutUs = 500000;
+    std::uint32_t locked_baud = 0;
+
+    {
+        protocol::ProtocolParser temp_parser;
+        for (auto rate : kBaudRates) {
+            uart.setBaudRate(rate);
+            uart.flushRx();
+            temp_parser.reset();
+
+            absolute_time_t start = get_absolute_time();
+            while (absolute_time_diff_us(start, get_absolute_time()) < kBaudTimeoutUs) {
+                if (!uart.isReadable()) {
+                    sleep_us(500);
+                    continue;
+                }
+                std::uint8_t tmp[64];
+                auto n = uart.read(tmp, sizeof(tmp));
+                temp_parser.feed(tmp, n);
+                if (temp_parser.hasReceivedValidFrame()) {
+                    locked_baud = rate;
+                    break;
+                }
+            }
+            if (locked_baud != 0) break;
+        }
+    }
+
+    if (locked_baud == 0) {
+        locked_baud = 300000;
+        uart.setBaudRate(locked_baud);
+    }
 
     usb_device::usb_descriptors_init();
 
