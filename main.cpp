@@ -88,10 +88,6 @@ int main() {
 
     std::array<std::uint8_t, 128> rx_buf{};
 
-    constexpr std::array<std::uint8_t, 3> kHeartbeat = {0x57, 0xAB, 0x98};
-    constexpr std::int64_t kHeartbeatIntervalUs = 5000000;
-
-    absolute_time_t last_heartbeat = get_absolute_time();
     absolute_time_t last_uart_rx{};
     absolute_time_t last_bootsel_poll = get_absolute_time();
 
@@ -126,11 +122,6 @@ int main() {
             gpio_put(kGreenLedPin, 1);
         } else {
             gpio_put(kGreenLedPin, key_active || uart_rx_active);
-        }
-
-        if (absolute_time_diff_us(last_heartbeat, now) >= kHeartbeatIntervalUs) {
-            uart.write(kHeartbeat.data(), kHeartbeat.size());
-            last_heartbeat = now;
         }
 
         if (uart.isReadable()) {
