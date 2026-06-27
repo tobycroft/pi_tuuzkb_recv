@@ -206,13 +206,23 @@ void ProtocolParser::handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,
 }
 
 void ProtocolParser::dispatchCommand(std::uint8_t cmd, const std::uint8_t* data, std::uint8_t len) {
+    std::cout << "[Parser] dispatchCommand: cmd=0x" << std::hex << (int)cmd 
+              << " len=" << std::dec << (int)len << std::endl;
+    
     switch (cmd) {
         case kCmdSendKbGeneralData: {
             if (len >= kKbGeneralDataLen) {
                 KbSingleKeyEvent evt{};
                 evt.usage = data[0];
                 evt.pressed = (data[1] != 0);
-                if (kb_single_cb_) kb_single_cb_(evt);
+                std::cout << "[Parser] Keyboard event: usage=0x" << std::hex << (int)evt.usage 
+                          << " pressed=" << std::dec << (int)evt.pressed << std::endl;
+                if (kb_single_cb_) {
+                    std::cout << "[Parser] Calling kb_single_cb_" << std::endl;
+                    kb_single_cb_(evt);
+                } else {
+                    std::cout << "[Parser] ERROR: kb_single_cb_ is null!" << std::endl;
+                }
             }
             break;
         }
