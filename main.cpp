@@ -226,6 +226,11 @@ int main() {
         send_device_info_75();
     });
 
+    parser.setResetCallback([&]() {
+        gpio_put(kGreenLedPin, 0);
+        reset_usb_boot(0, 0);
+    });
+
     parser.setChecksumErrorCallback([&](const protocol::ChecksumErrorInfo& info) {
         std::array<std::uint8_t, 7> err_pkt{};
         err_pkt[0] = 0x57;

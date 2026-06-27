@@ -23,6 +23,7 @@ ProtocolParser::ProtocolParser()
     , idx_loss_cb_(nullptr)
     , led_status_cb_(nullptr)
     , get_usb_string_cb_(nullptr)
+    , reset_cb_(nullptr)
     , last_idx_(0)
     , idx_initialized_(false)
     , has_pending_(false)
@@ -82,6 +83,10 @@ void ProtocolParser::setLedStatusCallback(LedStatusCallback cb) {
 
 void ProtocolParser::setGetUsbStringCallback(GetUsbStringCallback cb) {
     get_usb_string_cb_ = std::move(cb);
+}
+
+void ProtocolParser::setResetCallback(ResetCallback cb) {
+    reset_cb_ = std::move(cb);
 }
 
 void ProtocolParser::reset() {
@@ -152,7 +157,7 @@ void ProtocolParser::feed(const std::uint8_t* data, std::size_t len) {
                 } else {
                     expected_data_len_ = getFixedDataLen(cmd_code_);
                     if (expected_data_len_ == 0) {
-                        if (cmd_code_ == kCmdBaudNegotiate || cmd_code_ == kCmdGetUsbString) {
+                        if (cmd_code_ == kCmdBaudNegotiate || cmd_code_ == kCmdGetUsbString || cmd_code_ == kCmdReset) {
                             // 无数据负载帧，直接进入校验
                         } else {
                             reset();
@@ -435,6 +440,11 @@ void ProtocolParser::dispatchCommand(std::uint8_t cmd, const std::uint8_t* data,
 
         case kCmdGetUsbString: {
             if (get_usb_string_cb_) get_usb_string_cb_();
+            break;
+        }
+
+        case kCmdReset: {
+            if (reset_cb_) reset_cb_();
             break;
         }
 

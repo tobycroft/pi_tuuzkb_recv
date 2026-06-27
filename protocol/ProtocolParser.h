@@ -22,6 +22,8 @@ constexpr std::uint8_t kCmdSendMsRelWheelData = 0x16;
 constexpr std::uint8_t kCmdSetParaCfg         = 0x19;
 constexpr std::uint8_t kCmdSetUsbString       = 0x1B;
 
+constexpr std::uint8_t kCmdReset              = 0x0F;
+
 constexpr std::uint8_t kCmdLedStatus          = 0x73;
 constexpr std::uint8_t kCmdDeviceInfo        = 0x74;
 constexpr std::uint8_t kCmdGetUsbString       = 0x75;
@@ -119,6 +121,7 @@ public:
     using IndexLossCallback    = std::function<void(std::uint8_t lost_index)>;
     using LedStatusCallback    = std::function<void(const LedStatusData&)>;
     using GetUsbStringCallback = std::function<void()>;
+    using ResetCallback         = std::function<void()>;
 
     ProtocolParser();
     ~ProtocolParser() = default;
@@ -140,6 +143,7 @@ public:
     void setIndexLossCallback(IndexLossCallback cb);
     void setLedStatusCallback(LedStatusCallback cb);
     void setGetUsbStringCallback(GetUsbStringCallback cb);
+    void setResetCallback(ResetCallback cb);
 
     bool hasReceivedValidFrame() const { return frame_received_; }
     void clearFrameReceivedFlag() { frame_received_ = false; }
@@ -178,6 +182,7 @@ private:
     IndexLossCallback    idx_loss_cb_;
     LedStatusCallback led_status_cb_;
     GetUsbStringCallback get_usb_string_cb_;
+    ResetCallback reset_cb_;
 
     void dispatchCommand(std::uint8_t cmd, const std::uint8_t* data, std::uint8_t len);
     void handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,
