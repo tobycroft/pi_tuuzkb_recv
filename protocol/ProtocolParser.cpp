@@ -139,8 +139,12 @@ void ProtocolParser::feed(const std::uint8_t* data, std::size_t len) {
                 } else {
                     expected_data_len_ = getFixedDataLen(cmd_code_);
                     if (expected_data_len_ == 0) {
-                        reset();
-                        break;
+                        if (cmd_code_ == kCmdBaudNegotiate) {
+                            // 0xFF 协商帧无数据负载，直接进入校验
+                        } else {
+                            reset();
+                            break;
+                        }
                     }
                 }
 
