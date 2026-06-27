@@ -19,8 +19,15 @@ ProtocolParser::ProtocolParser()
     , mouse_wheel_cb_(nullptr)
     , para_cfg_cb_(nullptr)
     , usb_str_cb_(nullptr)
-    , checksum_err_cb_(nullptr) {
+    , checksum_err_cb_(nullptr)
+    , last_idx_(0)
+    , idx_initialized_(false)
+    , has_pending_(false)
+    , pending_idx_(0)
+    , pending_cmd_(0)
+    , pending_len_(0) {
     frame_buf_.fill(0);
+    pending_data_.fill(0);
 }
 
 void ProtocolParser::setKbCallback(KbCallback cb) {
@@ -199,10 +206,58 @@ void ProtocolParser::feed(const std::uint8_t* data, std::size_t len) {
     }
 }
 
+void ProtocolParser::executePendingFrame() {
+    dispatchCommand(pending_cmd_, pending_data_.data(), pending_len_);
+}
+
 void ProtocolParser::handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,
                                         const std::uint8_t* data, std::uint8_t len) {
-    (void)index;
-    dispatchCommand(cmd, data, len);
+    if (!idx_initialized_) {
+        dispatchCommand(cmd, data, len);
+        last_idx_ = index;
+        idx_initialized_ = true;
+        return;
+    }
+
+    std::uint8_t diff = index - last_idx_;
+
+    if (diff == 0) {
+        return;
+    }
+
+    if (diff > 128) {
+        return;
+    }
+
+    if (has_pending_) {
+        if (index == static_cast<std::uint8_t>(last_idx_ + 1)) {
+            dispatchCommand(cmd, data, len);
+            executePendingFrame();
+            last_idx_ = pending_idx_;
+            has_pending_ = false;
+        } else {
+            has_pending_ = false;
+            dispatchCommand(cmd, data, len);
+            last_idx_ = index;
+        }
+        return;
+    }
+
+    if (diff == 1) {
+        dispatchCommand(cmd, data, len);
+        last_idx_ = index;
+    } else if (diff == 2) {
+        pending_idx_ = index;
+        pending_cmd_ = cmd;
+        pending_len_ = len;
+        for (std::uint8_t i = 0; i < len; ++i) {
+            pending_data_[i] = data[i];
+        }
+        has_pending_ = true;
+    } else {
+        dispatchCommand(cmd, data, len);
+        last_idx_ = index;
+    }
 }
 
 void ProtocolParser::dispatchCommand(std::uint8_t cmd, const std::uint8_t* data, std::uint8_t len) {

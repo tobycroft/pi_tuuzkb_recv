@@ -150,7 +150,16 @@ private:
     void dispatchCommand(std::uint8_t cmd, const std::uint8_t* data, std::uint8_t len);
     void handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,
                             const std::uint8_t* data, std::uint8_t len);
+    void executePendingFrame();
     static bool cmdHasIndex(std::uint8_t cmd);
+
+    std::uint8_t last_idx_;
+    bool idx_initialized_;
+    bool has_pending_;
+    std::uint8_t pending_idx_;
+    std::uint8_t pending_cmd_;
+    std::array<std::uint8_t, kMaxFrameSize> pending_data_;
+    std::uint8_t pending_len_;
 };
 
 } // namespace protocol
