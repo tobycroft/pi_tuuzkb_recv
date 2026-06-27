@@ -162,7 +162,7 @@ private:
 
     State state_;
     std::uint8_t cmd_code_;
-    std::uint8_t expected_data_len_;
+    std::uint16_t expected_data_len_;
     std::uint8_t data_recv_;
     std::uint8_t pkt_index_;
     std::uint8_t checksum_acc_;
