@@ -34,7 +34,7 @@ int main() {
 
     // ===== 自动波特率协商 =====
     // 循环尝试 115200 → 300000 → 921600，每 0.5 秒切换一次
-    // 每个波特率发送 0xFF 协商帧，收到完整有效的 57AB 帧即锁定
+    // 每个波特率发送 0xA1 协商帧，收到完整有效的 57AB 帧即锁定
     constexpr std::array<std::uint32_t, 3> kBaudRates = {115200, 300000, 921600};
     constexpr std::int64_t kBaudTimeoutUs = 500000;
     constexpr std::array<std::uint8_t, 4> kBaudNegPkt = {
@@ -46,6 +46,8 @@ int main() {
     {
         protocol::ProtocolParser temp_parser;
         std::size_t rate_idx = 0;
+        absolute_time_t bootsel_last_poll = get_absolute_time();
+
         while (locked_baud == 0) {
             auto rate = kBaudRates[rate_idx];
             uart.setBaudRate(rate);
@@ -56,6 +58,24 @@ int main() {
 
             absolute_time_t start = get_absolute_time();
             while (absolute_time_diff_us(start, get_absolute_time()) < kBaudTimeoutUs) {
+                absolute_time_t now = get_absolute_time();
+
+                if (absolute_time_diff_us(bootsel_last_poll, now) >= kBootBtnPollUs) {
+                    bootsel_last_poll = now;
+                    bool btn_pressed = !get_bootsel_button();
+                    if (btn_pressed) {
+                        if (!btn_was_pressed) {
+                            btn_press_time = now;
+                            btn_was_pressed = true;
+                        } else if (absolute_time_diff_us(btn_press_time, now) >= kBootBtnHoldUs) {
+                            gpio_put(kGreenLedPin, 0);
+                            reset_usb_boot(0, 0);
+                        }
+                    } else {
+                        btn_was_pressed = false;
+                    }
+                }
+
                 if (!uart.isReadable()) {
                     sleep_us(500);
                     continue;

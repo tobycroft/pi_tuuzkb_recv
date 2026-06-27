@@ -24,7 +24,7 @@ constexpr std::uint8_t kCmdSetUsbString       = 0x1B;
 
 constexpr std::uint8_t kCmdError              = 0xE2;
 constexpr std::uint8_t kCmdIndexLoss          = 0xE1;
-constexpr std::uint8_t kCmdBaudNegotiate      = 0xFF;
+constexpr std::uint8_t kCmdBaudNegotiate      = 0xA1;
 
 constexpr std::size_t kErrorPacketLen = 4;
 
