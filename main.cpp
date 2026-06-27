@@ -97,6 +97,17 @@ int main() {
     usb_device::UsbHidDevice hid_device;
     hid_device.init();
 
+    usb_device::UsbHidDevice::setLedCallback([&](std::uint8_t led_byte) {
+        std::array<std::uint8_t, 5> led_pkt{};
+        led_pkt[0] = 0x57;
+        led_pkt[1] = 0xAB;
+        led_pkt[2] = protocol::kCmdLedStatus;
+        led_pkt[3] = led_byte;
+        led_pkt[4] = static_cast<std::uint8_t>(
+            (0x57 + 0xAB + protocol::kCmdLedStatus + led_byte) & 0xFF);
+        uart.write(led_pkt.data(), led_pkt.size());
+    });
+
     protocol::ProtocolParser parser;
 
     parser.setKbCallback([&](const protocol::KeyboardReport& report) {

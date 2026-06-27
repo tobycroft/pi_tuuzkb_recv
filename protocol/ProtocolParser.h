@@ -22,6 +22,8 @@ constexpr std::uint8_t kCmdSendMsRelWheelData = 0x16;
 constexpr std::uint8_t kCmdSetParaCfg         = 0x19;
 constexpr std::uint8_t kCmdSetUsbString       = 0x1B;
 
+constexpr std::uint8_t kCmdLedStatus          = 0x73;
+
 constexpr std::uint8_t kCmdError              = 0xE2;
 constexpr std::uint8_t kCmdIndexLoss          = 0xE1;
 constexpr std::uint8_t kCmdBaudNegotiate      = 0xA1;
@@ -37,6 +39,7 @@ constexpr std::size_t kMsRelMoveLen     = 2;
 constexpr std::size_t kMsRelWheelLen    = 1;
 constexpr std::size_t kParaCfgLen       = 4;
 constexpr std::size_t kUsbStringMinLen  = 2;
+constexpr std::size_t kLedStatusLen     = 1;
 
 struct KeyboardReport {
     std::uint8_t modifiers;
@@ -88,6 +91,10 @@ struct ChecksumErrorInfo {
     std::uint8_t received_checksum;
 };
 
+struct LedStatusData {
+    std::uint8_t led_byte;
+};
+
 class ProtocolParser {
 public:
     using KbCallback        = std::function<void(const KeyboardReport&)>;
@@ -100,6 +107,7 @@ public:
     using UsbStringCallback = std::function<void(const UsbStringData&)>;
     using ChecksumErrorCallback = std::function<void(const ChecksumErrorInfo&)>;
     using IndexLossCallback    = std::function<void(std::uint8_t lost_index)>;
+    using LedStatusCallback    = std::function<void(const LedStatusData&)>;
 
     ProtocolParser();
     ~ProtocolParser() = default;
@@ -119,6 +127,7 @@ public:
     void setUsbStringCallback(UsbStringCallback cb);
     void setChecksumErrorCallback(ChecksumErrorCallback cb);
     void setIndexLossCallback(IndexLossCallback cb);
+    void setLedStatusCallback(LedStatusCallback cb);
 
     bool hasReceivedValidFrame() const { return frame_received_; }
     void clearFrameReceivedFlag() { frame_received_ = false; }
@@ -155,6 +164,7 @@ private:
     UsbStringCallback usb_str_cb_;
     ChecksumErrorCallback checksum_err_cb_;
     IndexLossCallback    idx_loss_cb_;
+    LedStatusCallback    led_status_cb_;
 
     void dispatchCommand(std::uint8_t cmd, const std::uint8_t* data, std::uint8_t len);
     void handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,

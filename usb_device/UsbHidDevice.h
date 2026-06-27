@@ -7,9 +7,12 @@
 
 #include <cstdint>
 #include <array>
+#include <functional>
 #include "../protocol/ProtocolParser.h"
 
 namespace usb_device {
+
+using LedCallback = std::function<void(std::uint8_t led_byte)>;
 
 class UsbHidDevice {
 public:
@@ -33,6 +36,8 @@ public:
     void handleSingleKey(const protocol::KbSingleKeyEvent& evt);
 
     bool isMounted() const;
+
+    static void setLedCallback(LedCallback cb);
 
 private:
     void flushKeyboardReport();

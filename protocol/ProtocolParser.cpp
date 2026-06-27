@@ -21,6 +21,7 @@ ProtocolParser::ProtocolParser()
     , usb_str_cb_(nullptr)
     , checksum_err_cb_(nullptr)
     , idx_loss_cb_(nullptr)
+    , led_status_cb_(nullptr)
     , last_idx_(0)
     , idx_initialized_(false)
     , has_pending_(false)
@@ -74,6 +75,10 @@ void ProtocolParser::setIndexLossCallback(IndexLossCallback cb) {
     idx_loss_cb_ = std::move(cb);
 }
 
+void ProtocolParser::setLedStatusCallback(LedStatusCallback cb) {
+    led_status_cb_ = std::move(cb);
+}
+
 void ProtocolParser::reset() {
     state_ = State::WaitHdr1;
     data_recv_ = 0;
@@ -97,6 +102,7 @@ static std::uint8_t getFixedDataLen(std::uint8_t cmd) {
         case kCmdSendMsRelMoveData:  return kMsRelMoveLen;
         case kCmdSendMsRelWheelData: return kMsRelWheelLen;
         case kCmdSetParaCfg:         return kParaCfgLen;
+        case kCmdLedStatus:          return kLedStatusLen;
         default:                     return 0;
     }
 }
@@ -397,6 +403,15 @@ void ProtocolParser::dispatchCommand(std::uint8_t cmd, const std::uint8_t* data,
                 }
                 str.str[copy_len] = '\0';
                 if (usb_str_cb_) usb_str_cb_(str);
+            }
+            break;
+        }
+
+        case kCmdLedStatus: {
+            if (len >= kLedStatusLen) {
+                LedStatusData led{};
+                led.led_byte = data[0];
+                if (led_status_cb_) led_status_cb_(led);
             }
             break;
         }

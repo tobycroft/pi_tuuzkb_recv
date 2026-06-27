@@ -4,6 +4,12 @@
 
 namespace usb_device {
 
+static LedCallback g_led_callback;
+
+void UsbHidDevice::setLedCallback(LedCallback cb) {
+    g_led_callback = std::move(cb);
+}
+
 UsbHidDevice::UsbHidDevice()
     : initialized_(false)
     , kb_dirty_(false)
@@ -172,9 +178,9 @@ extern "C" {
 void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t const* buffer, uint16_t bufsize) {
     (void) instance;
     (void) report_id;
-    (void) report_type;
-    (void) buffer;
-    (void) bufsize;
+    if (report_type == HID_REPORT_TYPE_OUTPUT && bufsize >= 1 && usb_device::g_led_callback) {
+        usb_device::g_led_callback(buffer[0]);
+    }
 }
 
 uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type, uint8_t* buffer, uint16_t reqlen) {
