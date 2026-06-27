@@ -11,6 +11,8 @@
 #include "usb_device/UsbHidDevice.h"
 #include "usb_device/UsbDescriptors.h"
 
+extern "C" bool get_bootsel_button(void);
+
 int main() {
 
     constexpr std::uint8_t kGreenLedPin = 25;
@@ -20,12 +22,8 @@ int main() {
     gpio_set_dir(kGreenLedPin, GPIO_OUT);
     gpio_put(kGreenLedPin, 0);
 
-    constexpr std::uint8_t kBootBtnPin = 22;
-    constexpr std::int64_t kBootBtnHoldUs = 200000;
-
-    gpio_init(kBootBtnPin);
-    gpio_set_dir(kBootBtnPin, GPIO_IN);
-    gpio_pull_up(kBootBtnPin);
+    constexpr std::int64_t kBootBtnHoldUs = 2500000;
+    constexpr std::int64_t kBootBtnPollUs = 50000;
 
     absolute_time_t last_key_activity{};
     absolute_time_t btn_press_time{};
@@ -74,9 +72,18 @@ int main() {
         usb_device::usb_set_string(str.type, str.str.data(), str.len);
     });
 
-    constexpr std::array<std::uint8_t, 3> kErrorReport = {0x57, 0xAB, 0x2E};
-    parser.setChecksumErrorCallback([&]() {
-        uart.write(kErrorReport.data(), kErrorReport.size());
+    parser.setChecksumErrorCallback([&](const protocol::ChecksumErrorInfo& info) {
+        std::array<std::uint8_t, 7> err_pkt{};
+        err_pkt[0] = 0x57;
+        err_pkt[1] = 0xAB;
+        err_pkt[2] = protocol::kCmdError;
+        err_pkt[3] = info.cmd;
+        err_pkt[4] = info.expected_checksum;
+        err_pkt[5] = info.received_checksum;
+        err_pkt[6] = static_cast<std::uint8_t>(
+            (0x57 + 0xAB + protocol::kCmdError + info.cmd
+             + info.expected_checksum + info.received_checksum) & 0xFF);
+        uart.write(err_pkt.data(), err_pkt.size());
     });
 
     std::array<std::uint8_t, 128> rx_buf{};
@@ -85,33 +92,40 @@ int main() {
     constexpr std::int64_t kHeartbeatIntervalUs = 5000000;
 
     absolute_time_t last_heartbeat = get_absolute_time();
+    absolute_time_t last_uart_rx{};
+    absolute_time_t last_bootsel_poll = get_absolute_time();
 
     while (true) {
         hid_device.task();
 
         absolute_time_t now = get_absolute_time();
 
-        bool btn_pressed = !gpio_get(kBootBtnPin);
+        if (absolute_time_diff_us(last_bootsel_poll, now) >= kBootBtnPollUs) {
+            last_bootsel_poll = now;
 
-        if (btn_pressed) {
-            if (!btn_was_pressed) {
-                btn_press_time = now;
-                btn_was_pressed = true;
-            } else if (absolute_time_diff_us(btn_press_time, now) >= kBootBtnHoldUs) {
-                gpio_put(kGreenLedPin, 0);
-                reset_usb_boot(0, 0);
+            bool btn_pressed = !get_bootsel_button();
+
+            if (btn_pressed) {
+                if (!btn_was_pressed) {
+                    btn_press_time = now;
+                    btn_was_pressed = true;
+                } else if (absolute_time_diff_us(btn_press_time, now) >= kBootBtnHoldUs) {
+                    gpio_put(kGreenLedPin, 0);
+                    reset_usb_boot(0, 0);
+                }
+            } else {
+                btn_was_pressed = false;
             }
-        } else {
-            btn_was_pressed = false;
         }
 
         bool mounted = hid_device.isMounted();
         bool key_active = absolute_time_diff_us(last_key_activity, now) < kLedBlinkDurationUs;
+        bool uart_rx_active = absolute_time_diff_us(last_uart_rx, now) < kLedBlinkDurationUs;
 
         if (!mounted) {
             gpio_put(kGreenLedPin, 1);
         } else {
-            gpio_put(kGreenLedPin, key_active);
+            gpio_put(kGreenLedPin, key_active || uart_rx_active);
         }
 
         if (absolute_time_diff_us(last_heartbeat, now) >= kHeartbeatIntervalUs) {
@@ -122,6 +136,7 @@ int main() {
         if (uart.isReadable()) {
             std::size_t n = uart.read(rx_buf.data(), rx_buf.size());
             if (n > 0) {
+                last_uart_rx = get_absolute_time();
                 parser.feed(rx_buf.data(), n);
             }
         }

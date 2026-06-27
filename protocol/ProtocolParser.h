@@ -22,6 +22,10 @@ constexpr std::uint8_t kCmdSendMsRelWheelData = 0x16;
 constexpr std::uint8_t kCmdSetParaCfg         = 0x19;
 constexpr std::uint8_t kCmdSetUsbString       = 0x1B;
 
+constexpr std::uint8_t kCmdError              = 0xE2;
+
+constexpr std::size_t kErrorPacketLen = 4;
+
 constexpr std::size_t kMaxFrameSize = 128;
 constexpr std::size_t kMaxUsbStringLen = 64;
 
@@ -76,6 +80,12 @@ struct UsbStringData {
     std::array<char, kMaxUsbStringLen> str;
 };
 
+struct ChecksumErrorInfo {
+    std::uint8_t cmd;
+    std::uint8_t expected_checksum;
+    std::uint8_t received_checksum;
+};
+
 class ProtocolParser {
 public:
     using KbCallback        = std::function<void(const KeyboardReport&)>;
@@ -86,7 +96,7 @@ public:
     using MouseWheelCallback = std::function<void(const MouseWheelEvent&)>;
     using ParaCfgCallback   = std::function<void(const ParaCfgData&)>;
     using UsbStringCallback = std::function<void(const UsbStringData&)>;
-    using ChecksumErrorCallback = std::function<void()>;
+    using ChecksumErrorCallback = std::function<void(const ChecksumErrorInfo&)>;
 
     ProtocolParser();
     ~ProtocolParser() = default;

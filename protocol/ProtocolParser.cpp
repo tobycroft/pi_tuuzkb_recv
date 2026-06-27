@@ -184,7 +184,13 @@ void ProtocolParser::feed(const std::uint8_t* data, std::size_t len) {
                         dispatchCommand(cmd_code_, frame_buf_.data(), data_recv_);
                     }
                 } else {
-                    if (checksum_err_cb_) checksum_err_cb_();
+                    if (checksum_err_cb_) {
+                        ChecksumErrorInfo info{};
+                        info.cmd = cmd_code_;
+                        info.expected_checksum = expected;
+                        info.received_checksum = byte;
+                        checksum_err_cb_(info);
+                    }
                 }
                 reset();
                 break;
