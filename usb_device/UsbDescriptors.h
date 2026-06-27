@@ -34,6 +34,12 @@ void usb_set_vid_pid(std::uint16_t vid, std::uint16_t pid);
 
 void usb_set_string(std::uint8_t type, const char* str, std::uint8_t len);
 
+std::uint16_t usb_get_vid();
+std::uint16_t usb_get_pid();
+const char* usb_get_manufacturer();
+const char* usb_get_product();
+const char* usb_get_serial();
+
 } // namespace usb_device
 
 #endif // USB_DEVICE_USB_DESCRIPTORS_H

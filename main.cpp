@@ -1,5 +1,6 @@
 #include <cstdint>
 #include <cstddef>
+#include <cstring>
 #include <array>
 
 #include "pico/time.h"
@@ -97,6 +98,45 @@ int main() {
     usb_device::UsbHidDevice hid_device;
     hid_device.init();
 
+    auto send_device_info = [&]() {
+        std::array<std::uint8_t, protocol::kDeviceInfoFrameLen> dev_info_pkt{};
+        dev_info_pkt[0] = 0x57;
+        dev_info_pkt[1] = 0xAB;
+        dev_info_pkt[2] = protocol::kCmdDeviceInfo;
+
+        std::uint16_t vid = usb_device::usb_get_vid();
+        std::uint16_t pid = usb_device::usb_get_pid();
+        dev_info_pkt[3] = static_cast<std::uint8_t>((vid >> 8) & 0xFF);
+        dev_info_pkt[4] = static_cast<std::uint8_t>(vid & 0xFF);
+        dev_info_pkt[5] = static_cast<std::uint8_t>((pid >> 8) & 0xFF);
+        dev_info_pkt[6] = static_cast<std::uint8_t>(pid & 0xFF);
+
+        const char* mfgr = usb_device::usb_get_manufacturer();
+        const char* prod = usb_device::usb_get_product();
+        const char* serial = usb_device::usb_get_serial();
+        std::size_t offset = 7;
+        std::size_t len = std::strlen(mfgr);
+        if (len > usb_device::kMaxUsbStringLen) len = usb_device::kMaxUsbStringLen;
+        std::memcpy(&dev_info_pkt[offset], mfgr, len);
+        offset += usb_device::kMaxUsbStringLen;
+        len = std::strlen(prod);
+        if (len > usb_device::kMaxUsbStringLen) len = usb_device::kMaxUsbStringLen;
+        std::memcpy(&dev_info_pkt[offset], prod, len);
+        offset += usb_device::kMaxUsbStringLen;
+        len = std::strlen(serial);
+        if (len > usb_device::kMaxUsbStringLen) len = usb_device::kMaxUsbStringLen;
+        std::memcpy(&dev_info_pkt[offset], serial, len);
+
+        std::uint8_t sum = 0;
+        for (std::size_t i = 0; i < protocol::kDeviceInfoFrameLen - 1; ++i) {
+            sum += dev_info_pkt[i];
+        }
+        dev_info_pkt[protocol::kDeviceInfoFrameLen - 1] = sum;
+        uart.write(dev_info_pkt.data(), dev_info_pkt.size());
+    };
+
+    send_device_info();
+
     usb_device::UsbHidDevice::setLedCallback([&](std::uint8_t led_byte) {
         std::array<std::uint8_t, 5> led_pkt{};
         led_pkt[0] = 0x57;
@@ -137,10 +177,12 @@ int main() {
 
     parser.setParaCfgCallback([&](const protocol::ParaCfgData& cfg) {
         usb_device::usb_set_vid_pid(cfg.vid, cfg.pid);
+        send_device_info();
     });
 
     parser.setUsbStringCallback([&](const protocol::UsbStringData& str) {
         usb_device::usb_set_string(str.type, str.str.data(), str.len);
+        send_device_info();
     });
 
     parser.setChecksumErrorCallback([&](const protocol::ChecksumErrorInfo& info) {

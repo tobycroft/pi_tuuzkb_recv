@@ -131,6 +131,31 @@ void usb_set_string(std::uint8_t type, const char* str, std::uint8_t len) {
     save_config_to_flash();
 }
 
+std::uint16_t usb_get_vid() {
+    if (!g_initialized) load_config_from_flash();
+    return g_config.vid;
+}
+
+std::uint16_t usb_get_pid() {
+    if (!g_initialized) load_config_from_flash();
+    return g_config.pid;
+}
+
+const char* usb_get_manufacturer() {
+    if (!g_initialized) load_config_from_flash();
+    return g_config.manufacturer.data();
+}
+
+const char* usb_get_product() {
+    if (!g_initialized) load_config_from_flash();
+    return g_config.product.data();
+}
+
+const char* usb_get_serial() {
+    if (!g_initialized) load_config_from_flash();
+    return g_config.serial.data();
+}
+
 } // namespace usb_device
 
 static tusb_desc_device_t desc_device = {

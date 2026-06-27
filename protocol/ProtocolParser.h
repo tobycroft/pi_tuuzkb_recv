@@ -23,6 +23,7 @@ constexpr std::uint8_t kCmdSetParaCfg         = 0x19;
 constexpr std::uint8_t kCmdSetUsbString       = 0x1B;
 
 constexpr std::uint8_t kCmdLedStatus          = 0x73;
+constexpr std::uint8_t kCmdDeviceInfo        = 0x74;
 
 constexpr std::uint8_t kCmdError              = 0xE2;
 constexpr std::uint8_t kCmdIndexLoss          = 0xE1;
@@ -40,6 +41,9 @@ constexpr std::size_t kMsRelWheelLen    = 1;
 constexpr std::size_t kParaCfgLen       = 4;
 constexpr std::size_t kUsbStringMinLen  = 2;
 constexpr std::size_t kLedStatusLen     = 1;
+
+constexpr std::size_t kDeviceInfoPayloadLen = 196;
+constexpr std::size_t kDeviceInfoFrameLen   = 200;
 
 struct KeyboardReport {
     std::uint8_t modifiers;
