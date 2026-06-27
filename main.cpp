@@ -33,10 +33,10 @@ int main() {
     uart.init(115200);
 
     // ===== 自动波特率协商 =====
-    // 循环尝试 115200 → 300000 → 921600，每 1 秒切换一次
+    // 循环尝试 115200 → 300000 → 921600，每 0.5 秒切换一次
     // 每个波特率发送 0xFF 协商帧，收到完整有效的 57AB 帧即锁定
     constexpr std::array<std::uint32_t, 3> kBaudRates = {115200, 300000, 921600};
-    constexpr std::int64_t kBaudTimeoutUs = 1000000;
+    constexpr std::int64_t kBaudTimeoutUs = 500000;
     constexpr std::array<std::uint8_t, 4> kBaudNegPkt = {
         0x57, 0xAB, protocol::kCmdBaudNegotiate,
         static_cast<std::uint8_t>((0x57 + 0xAB + protocol::kCmdBaudNegotiate) & 0xFF)
