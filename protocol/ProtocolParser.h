@@ -156,6 +156,8 @@ private:
                             const std::uint8_t* data, std::uint8_t len);
     void executePendingFrame();
     static bool cmdHasIndex(std::uint8_t cmd);
+    void addRecentIndex(std::uint8_t idx);
+    bool isRecentIndex(std::uint8_t idx) const;
 
     std::uint8_t last_idx_;
     bool idx_initialized_;
@@ -164,6 +166,11 @@ private:
     std::uint8_t pending_cmd_;
     std::array<std::uint8_t, kMaxFrameSize> pending_data_;
     std::uint8_t pending_len_;
+
+    static constexpr std::uint8_t kRecentIdxSize = 8;
+    std::array<std::uint8_t, kRecentIdxSize> recent_idxs_;
+    std::uint8_t recent_idx_pos_;
+    std::uint8_t recent_idx_count_;
 };
 
 } // namespace protocol

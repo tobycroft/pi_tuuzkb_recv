@@ -26,9 +26,12 @@ ProtocolParser::ProtocolParser()
     , has_pending_(false)
     , pending_idx_(0)
     , pending_cmd_(0)
-    , pending_len_(0) {
+    , pending_len_(0)
+    , recent_idx_pos_(0)
+    , recent_idx_count_(0) {
     frame_buf_.fill(0);
     pending_data_.fill(0);
+    recent_idxs_.fill(0);
 }
 
 void ProtocolParser::setKbCallback(KbCallback cb) {
@@ -213,6 +216,22 @@ void ProtocolParser::feed(const std::uint8_t* data, std::size_t len) {
 
 void ProtocolParser::executePendingFrame() {
     dispatchCommand(pending_cmd_, pending_data_.data(), pending_len_);
+    addRecentIndex(pending_idx_);
+}
+
+bool ProtocolParser::isRecentIndex(std::uint8_t idx) const {
+    for (std::uint8_t i = 0; i < recent_idx_count_; ++i) {
+        if (recent_idxs_[i] == idx) return true;
+    }
+    return false;
+}
+
+void ProtocolParser::addRecentIndex(std::uint8_t idx) {
+    recent_idxs_[recent_idx_pos_] = idx;
+    recent_idx_pos_ = static_cast<std::uint8_t>((recent_idx_pos_ + 1) % kRecentIdxSize);
+    if (recent_idx_count_ < kRecentIdxSize) {
+        ++recent_idx_count_;
+    }
 }
 
 void ProtocolParser::handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,
@@ -221,6 +240,7 @@ void ProtocolParser::handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,
         dispatchCommand(cmd, data, len);
         last_idx_ = index;
         idx_initialized_ = true;
+        addRecentIndex(index);
         return;
     }
 
@@ -234,6 +254,10 @@ void ProtocolParser::handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,
         return;
     }
 
+    if (isRecentIndex(index)) {
+        return;
+    }
+
     if (has_pending_) {
         if (index == pending_idx_) {
             return;
@@ -241,6 +265,7 @@ void ProtocolParser::handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,
 
         if (index == static_cast<std::uint8_t>(last_idx_ + 1)) {
             dispatchCommand(cmd, data, len);
+            addRecentIndex(index);
             executePendingFrame();
             last_idx_ = pending_idx_;
             has_pending_ = false;
@@ -250,6 +275,7 @@ void ProtocolParser::handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,
             }
             has_pending_ = false;
             dispatchCommand(cmd, data, len);
+            addRecentIndex(index);
             last_idx_ = index;
         }
         return;
@@ -257,6 +283,7 @@ void ProtocolParser::handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,
 
     if (diff == 1) {
         dispatchCommand(cmd, data, len);
+        addRecentIndex(index);
         last_idx_ = index;
     } else if (diff == 2) {
         pending_idx_ = index;
@@ -271,6 +298,7 @@ void ProtocolParser::handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,
             idx_loss_cb_(static_cast<std::uint8_t>(last_idx_ + 1));
         }
         dispatchCommand(cmd, data, len);
+        addRecentIndex(index);
         last_idx_ = index;
     }
 }
