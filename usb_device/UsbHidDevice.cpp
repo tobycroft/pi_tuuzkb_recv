@@ -5,7 +5,9 @@
 namespace usb_device {
 
 UsbHidDevice::UsbHidDevice()
-    : initialized_(false) {
+    : initialized_(false)
+    , kb_dirty_(false)
+    , mouse_dirty_(false) {
     current_kb_.modifiers = 0;
     current_kb_.reserved = 0;
     current_kb_.keys.fill(0);
@@ -28,6 +30,13 @@ void UsbHidDevice::init() {
 void UsbHidDevice::task() {
     if (!initialized_) return;
     tud_task();
+
+    if (kb_dirty_ && tud_hid_n_ready(0)) {
+        flushKeyboardReport();
+    }
+    if (mouse_dirty_ && tud_hid_n_ready(1)) {
+        flushMouseReport();
+    }
 }
 
 bool UsbHidDevice::isMounted() const {
@@ -61,27 +70,28 @@ void UsbHidDevice::sendMouseReport(const protocol::MouseReport& report) {
 
 void UsbHidDevice::handleMouseMove(const protocol::MouseMoveEvent& evt) {
     if (!initialized_ || !tud_mounted()) return;
-    if (!tud_hid_n_ready(1)) return;
 
     current_mouse_.x = evt.dx;
     current_mouse_.y = evt.dy;
 
-    tud_hid_n_mouse_report(1, 2, current_mouse_.buttons,
-                           current_mouse_.x, current_mouse_.y,
-                           current_mouse_.wheel, 0);
+    mouse_dirty_ = true;
 }
 
 void UsbHidDevice::handleMouseWheel(const protocol::MouseWheelEvent& evt) {
     if (!initialized_ || !tud_mounted()) return;
-    if (!tud_hid_n_ready(1)) return;
 
     current_mouse_.wheel = evt.wheel;
     current_mouse_.x = 0;
     current_mouse_.y = 0;
 
+    mouse_dirty_ = true;
+}
+
+void UsbHidDevice::flushMouseReport() {
     tud_hid_n_mouse_report(1, 2, current_mouse_.buttons,
                            current_mouse_.x, current_mouse_.y,
                            current_mouse_.wheel, 0);
+    mouse_dirty_ = false;
 }
 
 void UsbHidDevice::sendMediaReport(const protocol::MediaReport& report) {
@@ -104,7 +114,6 @@ static std::uint8_t modifier_usage_to_bit(std::uint8_t usage) {
 
 void UsbHidDevice::handleSingleKey(const protocol::KbSingleKeyEvent& evt) {
     if (!initialized_ || !tud_mounted()) return;
-    if (!tud_hid_n_ready(0)) return;
 
     std::uint8_t mod_bit = modifier_usage_to_bit(evt.usage);
     if (mod_bit != 0) {
@@ -144,11 +153,16 @@ void UsbHidDevice::handleSingleKey(const protocol::KbSingleKeyEvent& evt) {
         }
     }
 
+    kb_dirty_ = true;
+}
+
+void UsbHidDevice::flushKeyboardReport() {
     uint8_t keycode[6];
     for (int i = 0; i < 6; ++i) {
         keycode[i] = current_kb_.keys[i];
     }
     tud_hid_n_keyboard_report(0, 1, current_kb_.modifiers, keycode);
+    kb_dirty_ = false;
 }
 
 } // namespace usb_device

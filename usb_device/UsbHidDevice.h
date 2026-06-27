@@ -35,11 +35,17 @@ public:
     bool isMounted() const;
 
 private:
+    void flushKeyboardReport();
+    void flushMouseReport();
+
     bool initialized_;
 
     protocol::KeyboardReport current_kb_;
     protocol::MouseReport    current_mouse_;
     protocol::MediaReport    current_media_;
+
+    bool kb_dirty_;
+    bool mouse_dirty_;
 };
 
 } // namespace usb_device
