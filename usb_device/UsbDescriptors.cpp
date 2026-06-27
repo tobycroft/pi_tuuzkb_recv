@@ -176,9 +176,9 @@ static uint8_t const desc_hid_report_media[] = {
 
 static uint8_t const desc_configuration[] = {
     TUD_CONFIG_DESCRIPTOR(1, 3, 0, CONFIG_TOTAL_LEN, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 100),
-    TUD_HID_DESCRIPTOR(0, 4, false, sizeof(desc_hid_report_keyboard), EPNUM_HID_KEYBOARD, 16, 10),
-    TUD_HID_DESCRIPTOR(1, 5, false, sizeof(desc_hid_report_mouse),    EPNUM_HID_MOUSE,    16, 10),
-    TUD_HID_DESCRIPTOR(2, 6, false, sizeof(desc_hid_report_media),    EPNUM_HID_MEDIA,    16, 10),
+    TUD_HID_DESCRIPTOR(0, 4, false, sizeof(desc_hid_report_keyboard), EPNUM_HID_KEYBOARD, 16, 1),
+    TUD_HID_DESCRIPTOR(1, 5, false, sizeof(desc_hid_report_mouse),    EPNUM_HID_MOUSE,    16, 1),
+    TUD_HID_DESCRIPTOR(2, 6, false, sizeof(desc_hid_report_media),    EPNUM_HID_MEDIA,    16, 1),
 };
 
 uint8_t const* tud_descriptor_configuration_cb(uint8_t index) {
