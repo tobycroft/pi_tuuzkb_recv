@@ -7,7 +7,6 @@
 
 #include <cstdint>
 #include <array>
-#include <iostream>
 #include "../protocol/ProtocolParser.h"
 
 namespace usb_device {

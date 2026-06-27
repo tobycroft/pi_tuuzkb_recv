@@ -1,7 +1,6 @@
 #include <cstdint>
 #include <cstddef>
 #include <array>
-#include <iostream>
 
 #include "pico/time.h"
 #include "pico/bootrom.h"
@@ -137,12 +136,6 @@ int main() {
         if (uart.isReadable()) {
             std::size_t n = uart.read(rx_buf.data(), rx_buf.size());
             if (n > 0) {
-                std::cout << "[UART] Received " << std::dec << n << " bytes: ";
-                for (std::size_t i = 0; i < n && i < 20; ++i) {
-                    std::cout << std::hex << (int)rx_buf[i] << " ";
-                }
-                std::cout << std::dec << std::endl;
-                
                 last_uart_rx = get_absolute_time();
                 parser.feed(rx_buf.data(), n);
             }

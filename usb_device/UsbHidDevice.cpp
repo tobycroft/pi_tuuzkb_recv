@@ -103,25 +103,10 @@ static std::uint8_t modifier_usage_to_bit(std::uint8_t usage) {
 }
 
 void UsbHidDevice::handleSingleKey(const protocol::KbSingleKeyEvent& evt) {
-    std::cout << "[HID] handleSingleKey: usage=0x" << std::hex << (int)evt.usage 
-              << " pressed=" << std::dec << (int)evt.pressed << std::endl;
-    
-    if (!initialized_) {
-        std::cout << "[HID] ERROR: not initialized" << std::endl;
-        return;
-    }
-    if (!tud_mounted()) {
-        std::cout << "[HID] ERROR: not mounted" << std::endl;
-        return;
-    }
-    if (!tud_hid_n_ready(0)) {
-        std::cout << "[HID] ERROR: HID interface 0 not ready" << std::endl;
-        return;
-    }
+    if (!initialized_ || !tud_mounted()) return;
+    if (!tud_hid_n_ready(0)) return;
 
     std::uint8_t mod_bit = modifier_usage_to_bit(evt.usage);
-    std::cout << "[HID] mod_bit=" << std::hex << (int)mod_bit << std::dec << std::endl;
-    
     if (mod_bit != 0) {
         if (evt.pressed) {
             current_kb_.modifiers |= mod_bit;
@@ -163,15 +148,6 @@ void UsbHidDevice::handleSingleKey(const protocol::KbSingleKeyEvent& evt) {
     for (int i = 0; i < 6; ++i) {
         keycode[i] = current_kb_.keys[i];
     }
-    
-    std::cout << "[HID] Sending keyboard report: mod=" << std::hex << (int)current_kb_.modifiers 
-              << " keys=[";
-    for (int i = 0; i < 6; ++i) {
-        std::cout << std::hex << (int)keycode[i];
-        if (i < 5) std::cout << ",";
-    }
-    std::cout << "]" << std::dec << std::endl;
-    
     tud_hid_n_keyboard_report(0, 1, current_kb_.modifiers, keycode);
 }
 

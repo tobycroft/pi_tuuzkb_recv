@@ -9,7 +9,6 @@
 #include <cstddef>
 #include <array>
 #include <functional>
-#include <iostream>
 
 namespace protocol {
 
