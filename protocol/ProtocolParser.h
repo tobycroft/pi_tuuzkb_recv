@@ -24,6 +24,7 @@ constexpr std::uint8_t kCmdSetUsbString       = 0x1B;
 
 constexpr std::uint8_t kCmdLedStatus          = 0x73;
 constexpr std::uint8_t kCmdDeviceInfo        = 0x74;
+constexpr std::uint8_t kCmdGetUsbString       = 0x75;
 
 constexpr std::uint8_t kCmdError              = 0xE2;
 constexpr std::uint8_t kCmdIndexLoss          = 0xE1;
@@ -31,7 +32,7 @@ constexpr std::uint8_t kCmdBaudNegotiate      = 0xA1;
 
 constexpr std::size_t kErrorPacketLen = 4;
 
-constexpr std::size_t kMaxFrameSize = 128;
+constexpr std::size_t kMaxFrameSize = 256;
 constexpr std::size_t kMaxUsbStringLen = 64;
 
 constexpr std::size_t kKbGeneralDataLen = 2;
@@ -40,10 +41,15 @@ constexpr std::size_t kMsRelMoveLen     = 2;
 constexpr std::size_t kMsRelWheelLen    = 1;
 constexpr std::size_t kParaCfgLen       = 4;
 constexpr std::size_t kUsbStringMinLen  = 2;
+constexpr std::size_t kCombinedUsbStringLen = 192;
 constexpr std::size_t kLedStatusLen     = 1;
 
 constexpr std::size_t kDeviceInfoPayloadLen = 196;
 constexpr std::size_t kDeviceInfoFrameLen   = 200;
+
+constexpr std::uint8_t kStrTypeManufacturer = 0x00;
+constexpr std::uint8_t kStrTypeProduct      = 0x01;
+constexpr std::uint8_t kStrTypeSerial       = 0x02;
 
 struct KeyboardReport {
     std::uint8_t modifiers;
@@ -112,6 +118,7 @@ public:
     using ChecksumErrorCallback = std::function<void(const ChecksumErrorInfo&)>;
     using IndexLossCallback    = std::function<void(std::uint8_t lost_index)>;
     using LedStatusCallback    = std::function<void(const LedStatusData&)>;
+    using GetUsbStringCallback = std::function<void()>;
 
     ProtocolParser();
     ~ProtocolParser() = default;
@@ -132,6 +139,7 @@ public:
     void setChecksumErrorCallback(ChecksumErrorCallback cb);
     void setIndexLossCallback(IndexLossCallback cb);
     void setLedStatusCallback(LedStatusCallback cb);
+    void setGetUsbStringCallback(GetUsbStringCallback cb);
 
     bool hasReceivedValidFrame() const { return frame_received_; }
     void clearFrameReceivedFlag() { frame_received_ = false; }
@@ -168,7 +176,8 @@ private:
     UsbStringCallback usb_str_cb_;
     ChecksumErrorCallback checksum_err_cb_;
     IndexLossCallback    idx_loss_cb_;
-    LedStatusCallback    led_status_cb_;
+    LedStatusCallback led_status_cb_;
+    GetUsbStringCallback get_usb_string_cb_;
 
     void dispatchCommand(std::uint8_t cmd, const std::uint8_t* data, std::uint8_t len);
     void handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,

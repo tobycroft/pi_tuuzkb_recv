@@ -22,6 +22,7 @@ ProtocolParser::ProtocolParser()
     , checksum_err_cb_(nullptr)
     , idx_loss_cb_(nullptr)
     , led_status_cb_(nullptr)
+    , get_usb_string_cb_(nullptr)
     , last_idx_(0)
     , idx_initialized_(false)
     , has_pending_(false)
@@ -79,6 +80,10 @@ void ProtocolParser::setLedStatusCallback(LedStatusCallback cb) {
     led_status_cb_ = std::move(cb);
 }
 
+void ProtocolParser::setGetUsbStringCallback(GetUsbStringCallback cb) {
+    get_usb_string_cb_ = std::move(cb);
+}
+
 void ProtocolParser::reset() {
     state_ = State::WaitHdr1;
     data_recv_ = 0;
@@ -102,13 +107,15 @@ static std::uint8_t getFixedDataLen(std::uint8_t cmd) {
         case kCmdSendMsRelMoveData:  return kMsRelMoveLen;
         case kCmdSendMsRelWheelData: return kMsRelWheelLen;
         case kCmdSetParaCfg:         return kParaCfgLen;
+        case kCmdSetUsbString:       return kCombinedUsbStringLen;
         case kCmdLedStatus:          return kLedStatusLen;
         default:                     return 0;
     }
 }
 
 static bool isVariableLenCmd(std::uint8_t cmd) {
-    return cmd == kCmdSetUsbString;
+    (void)cmd;
+    return false;
 }
 
 void ProtocolParser::feed(const std::uint8_t* data, std::size_t len) {
@@ -145,8 +152,8 @@ void ProtocolParser::feed(const std::uint8_t* data, std::size_t len) {
                 } else {
                     expected_data_len_ = getFixedDataLen(cmd_code_);
                     if (expected_data_len_ == 0) {
-                        if (cmd_code_ == kCmdBaudNegotiate) {
-                            // 0xA1 协商帧无数据负载，直接进入校验
+                        if (cmd_code_ == kCmdBaudNegotiate || cmd_code_ == kCmdGetUsbString) {
+                            // 无数据负载帧，直接进入校验
                         } else {
                             reset();
                             break;
@@ -390,19 +397,29 @@ void ProtocolParser::dispatchCommand(std::uint8_t cmd, const std::uint8_t* data,
         }
 
         case kCmdSetUsbString: {
-            if (len >= kUsbStringMinLen) {
-                UsbStringData str{};
-                str.type = data[0];
-                str.len = data[1];
-                std::size_t copy_len = str.len;
-                if (copy_len > kMaxUsbStringLen - 1) {
-                    copy_len = kMaxUsbStringLen - 1;
+            if (len >= kCombinedUsbStringLen) {
+                if (usb_str_cb_) {
+                    UsbStringData manuf{};
+                    manuf.type = kStrTypeManufacturer;
+                    manuf.len = kMaxUsbStringLen - 1;
+                    std::memcpy(manuf.str.data(), data, kMaxUsbStringLen);
+                    manuf.str[kMaxUsbStringLen - 1] = '\0';
+                    usb_str_cb_(manuf);
+
+                    UsbStringData prod{};
+                    prod.type = kStrTypeProduct;
+                    prod.len = kMaxUsbStringLen - 1;
+                    std::memcpy(prod.str.data(), data + kMaxUsbStringLen, kMaxUsbStringLen);
+                    prod.str[kMaxUsbStringLen - 1] = '\0';
+                    usb_str_cb_(prod);
+
+                    UsbStringData serial{};
+                    serial.type = kStrTypeSerial;
+                    serial.len = kMaxUsbStringLen - 1;
+                    std::memcpy(serial.str.data(), data + kMaxUsbStringLen * 2, kMaxUsbStringLen);
+                    serial.str[kMaxUsbStringLen - 1] = '\0';
+                    usb_str_cb_(serial);
                 }
-                for (std::size_t i = 0; i < copy_len; ++i) {
-                    str.str[i] = static_cast<char>(data[2 + i]);
-                }
-                str.str[copy_len] = '\0';
-                if (usb_str_cb_) usb_str_cb_(str);
             }
             break;
         }
@@ -413,6 +430,11 @@ void ProtocolParser::dispatchCommand(std::uint8_t cmd, const std::uint8_t* data,
                 led.led_byte = data[0];
                 if (led_status_cb_) led_status_cb_(led);
             }
+            break;
+        }
+
+        case kCmdGetUsbString: {
+            if (get_usb_string_cb_) get_usb_string_cb_();
             break;
         }
 
