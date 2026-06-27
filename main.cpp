@@ -33,11 +33,10 @@ int main() {
     uart.init(115200);
 
     // ===== 自动波特率协商 =====
-    // 依次尝试 115200 → 300000 → 921600
-    // 每个波特率发送 0xFF 协商帧，然后监听 500ms
-    // 收到完整有效的 57AB 帧（Go 端响应）即锁定
+    // 循环尝试 115200 → 300000 → 921600，每 1 秒切换一次
+    // 每个波特率发送 0xFF 协商帧，收到完整有效的 57AB 帧即锁定
     constexpr std::array<std::uint32_t, 3> kBaudRates = {115200, 300000, 921600};
-    constexpr std::int64_t kBaudTimeoutUs = 500000;
+    constexpr std::int64_t kBaudTimeoutUs = 1000000;
     constexpr std::array<std::uint8_t, 4> kBaudNegPkt = {
         0x57, 0xAB, protocol::kCmdBaudNegotiate,
         static_cast<std::uint8_t>((0x57 + 0xAB + protocol::kCmdBaudNegotiate) & 0xFF)
@@ -46,7 +45,9 @@ int main() {
 
     {
         protocol::ProtocolParser temp_parser;
-        for (auto rate : kBaudRates) {
+        std::size_t rate_idx = 0;
+        while (locked_baud == 0) {
+            auto rate = kBaudRates[rate_idx];
             uart.setBaudRate(rate);
             uart.flushRx();
             temp_parser.reset();
@@ -67,13 +68,8 @@ int main() {
                     break;
                 }
             }
-            if (locked_baud != 0) break;
+            rate_idx = (rate_idx + 1) % kBaudRates.size();
         }
-    }
-
-    if (locked_baud == 0) {
-        locked_baud = 300000;
-        uart.setBaudRate(locked_baud);
     }
 
     usb_device::usb_descriptors_init();
