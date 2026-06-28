@@ -3,6 +3,8 @@
 #include "hardware/flash.h"
 #include "hardware/sync.h"
 
+extern uint8_t desc_configuration[];
+
 namespace usb_device {
 
 namespace {
@@ -190,7 +192,7 @@ void usb_apply_polling_rate() {
         kConfigDescLen + 2 * kHidDescLen + kIntervalOffset
     };
     for (std::size_t off : offsets) {
-        desc_configuration[off] = rate;
+        ::desc_configuration[off] = rate;
     }
 }
 
@@ -237,7 +239,7 @@ static uint8_t const desc_hid_report_media[] = {
 #define EPNUM_HID_MOUSE      0x82
 #define EPNUM_HID_MEDIA      0x83
 
-static uint8_t desc_configuration[] = {
+uint8_t desc_configuration[] = {
     TUD_CONFIG_DESCRIPTOR(1, 3, 0, CONFIG_TOTAL_LEN, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 100),
     TUD_HID_DESCRIPTOR(0, 4, false, sizeof(desc_hid_report_keyboard), EPNUM_HID_KEYBOARD, 16, 1),
     TUD_HID_DESCRIPTOR(1, 5, false, sizeof(desc_hid_report_mouse),    EPNUM_HID_MOUSE,    16, 1),
