@@ -26,14 +26,13 @@ ProtocolParser::ProtocolParser()
     , reset_cb_(nullptr)
     , last_idx_(0)
     , idx_initialized_(false)
-    , has_pending_(false)
-    , pending_idx_(0)
-    , pending_cmd_(0)
-    , pending_len_(0)
+    , pending_count_(0)
     , recent_idx_pos_(0)
     , recent_idx_count_(0) {
     frame_buf_.fill(0);
-    pending_data_.fill(0);
+    for (auto& p : pending_queue_) {
+        p.data.fill(0);
+    }
     recent_idxs_.fill(0);
 }
 
@@ -241,9 +240,71 @@ void ProtocolParser::feed(const std::uint8_t* data, std::size_t len) {
     }
 }
 
-void ProtocolParser::executePendingFrame() {
-    dispatchCommand(pending_cmd_, pending_data_.data(), pending_len_);
-    addRecentIndex(pending_idx_);
+void ProtocolParser::flushPendingFrames() {
+    while (pending_count_ > 0) {
+        if (pending_queue_[0].index == static_cast<std::uint8_t>(last_idx_ + 1)) {
+            dispatchCommand(pending_queue_[0].cmd,
+                           pending_queue_[0].data.data(),
+                           pending_queue_[0].len);
+            addRecentIndex(pending_queue_[0].index);
+            last_idx_ = pending_queue_[0].index;
+            for (std::uint8_t i = 0; i < pending_count_ - 1; ++i) {
+                pending_queue_[i] = pending_queue_[i + 1];
+            }
+            --pending_count_;
+        } else {
+            break;
+        }
+    }
+}
+
+void ProtocolParser::addPendingFrame(std::uint8_t index, std::uint8_t cmd,
+                                     const std::uint8_t* data, std::uint8_t len) {
+    for (std::uint8_t i = 0; i < pending_count_; ++i) {
+        if (pending_queue_[i].index == index) {
+            return;
+        }
+    }
+
+    if (pending_count_ >= kMaxPendingFrames) {
+        flushPendingFrames();
+        if (idx_loss_cb_) {
+            idx_loss_cb_(static_cast<std::uint8_t>(last_idx_ + 1));
+        }
+        dispatchCommand(cmd, data, len);
+        addRecentIndex(index);
+        last_idx_ = index;
+        return;
+    }
+
+    std::uint8_t pos = pending_count_;
+    for (std::uint8_t i = 0; i < pending_count_; ++i) {
+        if (pending_queue_[i].index > index) {
+            pos = i;
+            break;
+        }
+    }
+
+    for (std::uint8_t i = pending_count_; i > pos; --i) {
+        pending_queue_[i] = pending_queue_[i - 1];
+    }
+
+    pending_queue_[pos].index = index;
+    pending_queue_[pos].cmd = cmd;
+    pending_queue_[pos].len = len;
+    for (std::uint8_t i = 0; i < len; ++i) {
+        pending_queue_[pos].data[i] = data[i];
+    }
+    ++pending_count_;
+}
+
+bool ProtocolParser::hasPendingIndex(std::uint8_t idx) const {
+    for (std::uint8_t i = 0; i < pending_count_; ++i) {
+        if (pending_queue_[i].index == idx) {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool ProtocolParser::isRecentIndex(std::uint8_t idx) const {
@@ -278,11 +339,11 @@ void ProtocolParser::handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,
         diff_signed += 256;
     }
 
-    if (diff_signed > 2 || diff_signed < -2) {
+    if (diff_signed > kIndexTolerance || diff_signed < -kIndexTolerance) {
+        pending_count_ = 0;
         if (idx_loss_cb_) {
             idx_loss_cb_(static_cast<std::uint8_t>(last_idx_ + 1));
         }
-        has_pending_ = false;
         dispatchCommand(cmd, data, len);
         addRecentIndex(index);
         last_idx_ = index;
@@ -303,26 +364,7 @@ void ProtocolParser::handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,
         return;
     }
 
-    if (has_pending_) {
-        if (index == pending_idx_) {
-            return;
-        }
-
-        if (index == static_cast<std::uint8_t>(last_idx_ + 1)) {
-            dispatchCommand(cmd, data, len);
-            addRecentIndex(index);
-            executePendingFrame();
-            last_idx_ = pending_idx_;
-            has_pending_ = false;
-        } else {
-            if (idx_loss_cb_) {
-                idx_loss_cb_(static_cast<std::uint8_t>(last_idx_ + 1));
-            }
-            has_pending_ = false;
-            dispatchCommand(cmd, data, len);
-            addRecentIndex(index);
-            last_idx_ = index;
-        }
+    if (hasPendingIndex(index)) {
         return;
     }
 
@@ -330,22 +372,11 @@ void ProtocolParser::handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,
         dispatchCommand(cmd, data, len);
         addRecentIndex(index);
         last_idx_ = index;
-    } else if (diff == 2) {
-        pending_idx_ = index;
-        pending_cmd_ = cmd;
-        pending_len_ = len;
-        for (std::uint8_t i = 0; i < len; ++i) {
-            pending_data_[i] = data[i];
-        }
-        has_pending_ = true;
-    } else {
-        if (idx_loss_cb_) {
-            idx_loss_cb_(static_cast<std::uint8_t>(last_idx_ + 1));
-        }
-        dispatchCommand(cmd, data, len);
-        addRecentIndex(index);
-        last_idx_ = index;
+        flushPendingFrames();
+        return;
     }
+
+    addPendingFrame(index, cmd, data, len);
 }
 
 void ProtocolParser::dispatchCommand(std::uint8_t cmd, const std::uint8_t* data, std::uint8_t len) {

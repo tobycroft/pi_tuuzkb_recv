@@ -46,6 +46,9 @@ constexpr std::size_t kUsbStringMinLen  = 2;
 constexpr std::size_t kCombinedUsbStringLen = 192;
 constexpr std::size_t kLedStatusLen     = 1;
 
+constexpr std::uint8_t kIndexTolerance   = 4;
+constexpr std::uint8_t kMaxPendingFrames = kIndexTolerance - 1;
+
 constexpr std::size_t kDeviceInfoPayloadLen = 196;
 constexpr std::size_t kDeviceInfoFrameLen   = 200;
 
@@ -105,6 +108,13 @@ struct ChecksumErrorInfo {
 
 struct LedStatusData {
     std::uint8_t led_byte;
+};
+
+struct PendingFrame {
+    std::uint8_t index;
+    std::uint8_t cmd;
+    std::array<std::uint8_t, kMaxFrameSize> data;
+    std::uint8_t len;
 };
 
 class ProtocolParser {
@@ -187,18 +197,19 @@ private:
     void dispatchCommand(std::uint8_t cmd, const std::uint8_t* data, std::uint8_t len);
     void handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,
                             const std::uint8_t* data, std::uint8_t len);
-    void executePendingFrame();
+    void flushPendingFrames();
+    void addPendingFrame(std::uint8_t index, std::uint8_t cmd,
+                         const std::uint8_t* data, std::uint8_t len);
+    bool hasPendingIndex(std::uint8_t idx) const;
     static bool cmdHasIndex(std::uint8_t cmd);
     void addRecentIndex(std::uint8_t idx);
     bool isRecentIndex(std::uint8_t idx) const;
 
     std::uint8_t last_idx_;
     bool idx_initialized_;
-    bool has_pending_;
-    std::uint8_t pending_idx_;
-    std::uint8_t pending_cmd_;
-    std::array<std::uint8_t, kMaxFrameSize> pending_data_;
-    std::uint8_t pending_len_;
+
+    std::array<PendingFrame, kMaxPendingFrames> pending_queue_;
+    std::uint8_t pending_count_;
 
     static constexpr std::uint8_t kRecentIdxSize = 8;
     std::array<std::uint8_t, kRecentIdxSize> recent_idxs_;
