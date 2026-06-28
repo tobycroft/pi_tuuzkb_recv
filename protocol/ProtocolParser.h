@@ -27,6 +27,7 @@ constexpr std::uint8_t kCmdReset              = 0x0F;
 constexpr std::uint8_t kCmdLedStatus          = 0x73;
 constexpr std::uint8_t kCmdDeviceInfo        = 0x74;
 constexpr std::uint8_t kCmdGetUsbString       = 0x75;
+constexpr std::uint8_t kCmdPowerOnNotify     = 0x79;
 
 constexpr std::uint8_t kCmdError              = 0xE2;
 constexpr std::uint8_t kCmdIndexLoss          = 0xE1;

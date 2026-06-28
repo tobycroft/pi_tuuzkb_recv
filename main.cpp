@@ -5,6 +5,7 @@
 
 #include "pico/time.h"
 #include "pico/bootrom.h"
+#include "hardware/watchdog.h"
 #include "hardware/gpio.h"
 
 #include "uart/UartDriver.h"
@@ -144,6 +145,16 @@ int main() {
 
     send_device_info();
 
+    {
+        std::array<std::uint8_t, 4> power_on_pkt{};
+        power_on_pkt[0] = 0x57;
+        power_on_pkt[1] = 0xAB;
+        power_on_pkt[2] = protocol::kCmdPowerOnNotify;
+        power_on_pkt[3] = static_cast<std::uint8_t>(
+            (0x57 + 0xAB + protocol::kCmdPowerOnNotify) & 0xFF);
+        uart.write(power_on_pkt.data(), power_on_pkt.size());
+    }
+
     auto send_device_info_75 = [&]() {
         std::array<std::uint8_t, protocol::kDeviceInfoFrameLen> pkt{};
         pkt[0] = 0x57;
@@ -242,7 +253,7 @@ int main() {
 
     parser.setResetCallback([&]() {
         gpio_put(kGreenLedPin, 0);
-        reset_usb_boot(0, 0);
+        watchdog_reboot(0, 0, 0);
     });
 
     parser.setChecksumErrorCallback([&](const protocol::ChecksumErrorInfo& info) {
