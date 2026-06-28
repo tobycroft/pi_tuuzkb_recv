@@ -392,13 +392,7 @@ void ProtocolParser::handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,
         return;
     }
 
-    std::uint8_t diff = index - last_idx_;
-
-    if (diff == 0) {
-        return;
-    }
-
-    if (diff > 128) {
+    if (diff_signed == 0) {
         return;
     }
 
@@ -410,7 +404,13 @@ void ProtocolParser::handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,
         return;
     }
 
-    if (diff == 1) {
+    if (diff_signed < 0) {
+        dispatchCommand(cmd, data, len);
+        addRecentIndex(index);
+        return;
+    }
+
+    if (diff_signed == 1) {
         dispatchCommand(cmd, data, len);
         addRecentIndex(index);
         last_idx_ = index;
