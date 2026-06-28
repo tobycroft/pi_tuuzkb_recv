@@ -49,8 +49,8 @@ constexpr std::size_t kLedStatusLen     = 1;
 constexpr std::uint8_t kIndexTolerance   = 4;
 constexpr std::uint8_t kMaxPendingFrames = kIndexTolerance - 1;
 
-constexpr std::size_t kDeviceInfoPayloadLen = 196;
-constexpr std::size_t kDeviceInfoFrameLen   = 200;
+constexpr std::size_t kDeviceInfoPayloadLen = 201;
+constexpr std::size_t kDeviceInfoFrameLen   = 205;
 
 constexpr std::uint8_t kStrTypeManufacturer = 0x00;
 constexpr std::uint8_t kStrTypeProduct      = 0x01;

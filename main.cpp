@@ -111,10 +111,17 @@ int main() {
         dev_info_pkt[5] = static_cast<std::uint8_t>((pid >> 8) & 0xFF);
         dev_info_pkt[6] = static_cast<std::uint8_t>(pid & 0xFF);
 
+        dev_info_pkt[7]  = static_cast<std::uint8_t>(locked_baud & 0xFF);
+        dev_info_pkt[8]  = static_cast<std::uint8_t>((locked_baud >> 8) & 0xFF);
+        dev_info_pkt[9]  = static_cast<std::uint8_t>((locked_baud >> 16) & 0xFF);
+        dev_info_pkt[10] = static_cast<std::uint8_t>((locked_baud >> 24) & 0xFF);
+
+        dev_info_pkt[11] = hid_device.isMounted() ? static_cast<std::uint8_t>(1) : static_cast<std::uint8_t>(0);
+
         const char* mfgr = usb_device::usb_get_manufacturer();
         const char* prod = usb_device::usb_get_product();
         const char* serial = usb_device::usb_get_serial();
-        std::size_t offset = 7;
+        std::size_t offset = 12;
         std::size_t len = std::strlen(mfgr);
         if (len > usb_device::kMaxUsbStringLen) len = usb_device::kMaxUsbStringLen;
         std::memcpy(&dev_info_pkt[offset], mfgr, len);
@@ -150,10 +157,17 @@ int main() {
         pkt[5] = static_cast<std::uint8_t>((pid >> 8) & 0xFF);
         pkt[6] = static_cast<std::uint8_t>(pid & 0xFF);
 
+        pkt[7]  = static_cast<std::uint8_t>(locked_baud & 0xFF);
+        pkt[8]  = static_cast<std::uint8_t>((locked_baud >> 8) & 0xFF);
+        pkt[9]  = static_cast<std::uint8_t>((locked_baud >> 16) & 0xFF);
+        pkt[10] = static_cast<std::uint8_t>((locked_baud >> 24) & 0xFF);
+
+        pkt[11] = hid_device.isMounted() ? static_cast<std::uint8_t>(1) : static_cast<std::uint8_t>(0);
+
         const char* mfgr = usb_device::usb_get_manufacturer();
         const char* prod = usb_device::usb_get_product();
         const char* serial = usb_device::usb_get_serial();
-        std::size_t offset = 7;
+        std::size_t offset = 12;
         std::size_t len = std::strlen(mfgr);
         if (len > usb_device::kMaxUsbStringLen) len = usb_device::kMaxUsbStringLen;
         std::memcpy(&pkt[offset], mfgr, len);
