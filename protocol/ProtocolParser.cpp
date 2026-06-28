@@ -244,40 +244,40 @@ bool ProtocolParser::pollPendingFrame() {
     if (pending_count_ == 0) {
         return false;
     }
-    if (pending_queue_[0].index != static_cast<std::uint8_t>(last_idx_ + 1)) {
-        return false;
-    }
 
-    int first_cat = 2;
+    int target_cat = 2;
     if (pending_queue_[0].cmd == kCmdSendKbGeneralData && pending_queue_[0].len >= 2) {
-        first_cat = (pending_queue_[0].data[1] != 0) ? 1 : 0;
+        target_cat = (pending_queue_[0].data[1] != 0) ? 1 : 0;
     }
 
+    std::uint8_t max_idx = last_idx_;
+    std::uint8_t write = 0;
     bool dispatched = false;
-    while (pending_count_ > 0) {
-        if (pending_queue_[0].index != static_cast<std::uint8_t>(last_idx_ + 1)) {
-            break;
-        }
 
+    for (std::uint8_t i = 0; i < pending_count_; ++i) {
         int cat = 2;
-        if (pending_queue_[0].cmd == kCmdSendKbGeneralData && pending_queue_[0].len >= 2) {
-            cat = (pending_queue_[0].data[1] != 0) ? 1 : 0;
+        if (pending_queue_[i].cmd == kCmdSendKbGeneralData && pending_queue_[i].len >= 2) {
+            cat = (pending_queue_[i].data[1] != 0) ? 1 : 0;
         }
-
-        if (dispatched && cat != first_cat) {
-            break;
+        if (cat == target_cat) {
+            dispatchCommand(pending_queue_[i].cmd,
+                           pending_queue_[i].data.data(),
+                           pending_queue_[i].len);
+            addRecentIndex(pending_queue_[i].index);
+            if (pending_queue_[i].index > max_idx) {
+                max_idx = pending_queue_[i].index;
+            }
+            dispatched = true;
+        } else {
+            if (write != i) {
+                pending_queue_[write] = pending_queue_[i];
+            }
+            ++write;
         }
-
-        dispatchCommand(pending_queue_[0].cmd,
-                       pending_queue_[0].data.data(),
-                       pending_queue_[0].len);
-        addRecentIndex(pending_queue_[0].index);
-        last_idx_ = pending_queue_[0].index;
-        for (std::uint8_t i = 0; i < pending_count_ - 1; ++i) {
-            pending_queue_[i] = pending_queue_[i + 1];
-        }
-        --pending_count_;
-        dispatched = true;
+    }
+    pending_count_ = write;
+    if (dispatched) {
+        last_idx_ = max_idx;
     }
     return dispatched;
 }
