@@ -46,7 +46,7 @@ constexpr std::size_t kUsbStringMinLen  = 2;
 constexpr std::size_t kCombinedUsbStringLen = 192;
 constexpr std::size_t kLedStatusLen     = 1;
 
-constexpr std::uint8_t kIndexTolerance   = 6;
+constexpr std::uint8_t kIndexTolerance   = 10;
 constexpr std::uint8_t kMaxPendingFrames = kIndexTolerance - 1;
 
 constexpr std::size_t kDeviceInfoPayloadLen = 201;
