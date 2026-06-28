@@ -158,52 +158,6 @@ int main() {
         uart.write(power_on_pkt.data(), power_on_pkt.size());
     }
 
-    auto send_device_info_75 = [&]() {
-        std::array<std::uint8_t, protocol::kDeviceInfoFrameLen> pkt{};
-        pkt[0] = 0x57;
-        pkt[1] = 0xAB;
-        pkt[2] = protocol::kCmdGetUsbString;
-
-        std::uint16_t vid = usb_device::usb_get_vid();
-        std::uint16_t pid = usb_device::usb_get_pid();
-        pkt[3] = static_cast<std::uint8_t>((vid >> 8) & 0xFF);
-        pkt[4] = static_cast<std::uint8_t>(vid & 0xFF);
-        pkt[5] = static_cast<std::uint8_t>((pid >> 8) & 0xFF);
-        pkt[6] = static_cast<std::uint8_t>(pid & 0xFF);
-
-        pkt[7]  = static_cast<std::uint8_t>(locked_baud & 0xFF);
-        pkt[8]  = static_cast<std::uint8_t>((locked_baud >> 8) & 0xFF);
-        pkt[9]  = static_cast<std::uint8_t>((locked_baud >> 16) & 0xFF);
-        pkt[10] = static_cast<std::uint8_t>((locked_baud >> 24) & 0xFF);
-
-        pkt[11] = hid_device.isMounted() ? static_cast<std::uint8_t>(1) : static_cast<std::uint8_t>(0);
-
-        const char* mfgr = usb_device::usb_get_manufacturer();
-        const char* prod = usb_device::usb_get_product();
-        const char* serial = usb_device::usb_get_serial();
-        std::size_t offset = 12;
-        std::size_t len = std::strlen(mfgr);
-        if (len > usb_device::kMaxUsbStringLen) len = usb_device::kMaxUsbStringLen;
-        std::memcpy(&pkt[offset], mfgr, len);
-        offset += usb_device::kMaxUsbStringLen;
-        len = std::strlen(prod);
-        if (len > usb_device::kMaxUsbStringLen) len = usb_device::kMaxUsbStringLen;
-        std::memcpy(&pkt[offset], prod, len);
-        offset += usb_device::kMaxUsbStringLen;
-        len = std::strlen(serial);
-        if (len > usb_device::kMaxUsbStringLen) len = usb_device::kMaxUsbStringLen;
-        std::memcpy(&pkt[offset], serial, len);
-
-        pkt[204] = usb_device::usb_get_polling_rate();
-
-        std::uint8_t sum = 0;
-        for (std::size_t i = 0; i < protocol::kDeviceInfoFrameLen - 1; ++i) {
-            sum += pkt[i];
-        }
-        pkt[protocol::kDeviceInfoFrameLen - 1] = sum;
-        uart.write(pkt.data(), pkt.size());
-    };
-
     usb_device::UsbHidDevice::setLedCallback([&](std::uint8_t led_byte) {
         std::array<std::uint8_t, 5> led_pkt{};
         led_pkt[0] = 0x57;
@@ -253,7 +207,7 @@ int main() {
     });
 
     parser.setGetUsbStringCallback([&]() {
-        send_device_info_75();
+        send_device_info();
     });
 
     parser.setResetCallback([&]() {

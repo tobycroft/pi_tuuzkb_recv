@@ -161,7 +161,7 @@ void ProtocolParser::feed(const std::uint8_t* data, std::size_t len) {
                 } else {
                     expected_data_len_ = getFixedDataLen(cmd_code_);
                     if (expected_data_len_ == 0) {
-                        if (cmd_code_ == kCmdBaudNegotiate || cmd_code_ == kCmdGetUsbString || cmd_code_ == kCmdReset) {
+                        if (cmd_code_ == kCmdBaudNegotiate || cmd_code_ == kCmdDeviceInfo || cmd_code_ == kCmdReset) {
                             // 无数据负载帧，直接进入校验
                         } else {
                             reset();
@@ -515,7 +515,7 @@ void ProtocolParser::dispatchCommand(std::uint8_t cmd, const std::uint8_t* data,
             break;
         }
 
-        case kCmdGetUsbString: {
+        case kCmdDeviceInfo: {
             if (get_usb_string_cb_) get_usb_string_cb_();
             break;
         }
