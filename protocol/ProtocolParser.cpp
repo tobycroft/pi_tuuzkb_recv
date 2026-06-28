@@ -244,7 +244,30 @@ bool ProtocolParser::pollPendingFrame() {
     if (pending_count_ == 0) {
         return false;
     }
-    if (pending_queue_[0].index == static_cast<std::uint8_t>(last_idx_ + 1)) {
+    if (pending_queue_[0].index != static_cast<std::uint8_t>(last_idx_ + 1)) {
+        return false;
+    }
+
+    int first_cat = 2;
+    if (pending_queue_[0].cmd == kCmdSendKbGeneralData && pending_queue_[0].len >= 2) {
+        first_cat = (pending_queue_[0].data[1] != 0) ? 1 : 0;
+    }
+
+    bool dispatched = false;
+    while (pending_count_ > 0) {
+        if (pending_queue_[0].index != static_cast<std::uint8_t>(last_idx_ + 1)) {
+            break;
+        }
+
+        int cat = 2;
+        if (pending_queue_[0].cmd == kCmdSendKbGeneralData && pending_queue_[0].len >= 2) {
+            cat = (pending_queue_[0].data[1] != 0) ? 1 : 0;
+        }
+
+        if (dispatched && cat != first_cat) {
+            break;
+        }
+
         dispatchCommand(pending_queue_[0].cmd,
                        pending_queue_[0].data.data(),
                        pending_queue_[0].len);
@@ -254,9 +277,9 @@ bool ProtocolParser::pollPendingFrame() {
             pending_queue_[i] = pending_queue_[i + 1];
         }
         --pending_count_;
-        return true;
+        dispatched = true;
     }
-    return false;
+    return dispatched;
 }
 
 void ProtocolParser::flushPendingFrames() {
