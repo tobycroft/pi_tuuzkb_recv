@@ -136,6 +136,8 @@ int main() {
         if (len > usb_device::kMaxUsbStringLen) len = usb_device::kMaxUsbStringLen;
         std::memcpy(&dev_info_pkt[offset], serial, len);
 
+        dev_info_pkt[204] = usb_device::usb_get_polling_rate();
+
         std::uint8_t sum = 0;
         for (std::size_t i = 0; i < protocol::kDeviceInfoFrameLen - 1; ++i) {
             sum += dev_info_pkt[i];
@@ -191,6 +193,8 @@ int main() {
         len = std::strlen(serial);
         if (len > usb_device::kMaxUsbStringLen) len = usb_device::kMaxUsbStringLen;
         std::memcpy(&pkt[offset], serial, len);
+
+        pkt[204] = usb_device::usb_get_polling_rate();
 
         std::uint8_t sum = 0;
         for (std::size_t i = 0; i < protocol::kDeviceInfoFrameLen - 1; ++i) {
