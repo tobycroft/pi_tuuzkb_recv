@@ -240,6 +240,25 @@ void ProtocolParser::feed(const std::uint8_t* data, std::size_t len) {
     }
 }
 
+bool ProtocolParser::pollPendingFrame() {
+    if (pending_count_ == 0) {
+        return false;
+    }
+    if (pending_queue_[0].index == static_cast<std::uint8_t>(last_idx_ + 1)) {
+        dispatchCommand(pending_queue_[0].cmd,
+                       pending_queue_[0].data.data(),
+                       pending_queue_[0].len);
+        addRecentIndex(pending_queue_[0].index);
+        last_idx_ = pending_queue_[0].index;
+        for (std::uint8_t i = 0; i < pending_count_ - 1; ++i) {
+            pending_queue_[i] = pending_queue_[i + 1];
+        }
+        --pending_count_;
+        return true;
+    }
+    return false;
+}
+
 void ProtocolParser::flushPendingFrames() {
     while (pending_count_ > 0) {
         if (pending_queue_[0].index == static_cast<std::uint8_t>(last_idx_ + 1)) {
@@ -372,7 +391,6 @@ void ProtocolParser::handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,
         dispatchCommand(cmd, data, len);
         addRecentIndex(index);
         last_idx_ = index;
-        flushPendingFrames();
         return;
     }
 

@@ -158,6 +158,8 @@ public:
     bool hasReceivedValidFrame() const { return frame_received_; }
     void clearFrameReceivedFlag() { frame_received_ = false; }
 
+    bool pollPendingFrame();
+
     void reset();
 
 private:

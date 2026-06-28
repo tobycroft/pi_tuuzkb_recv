@@ -316,6 +316,8 @@ int main() {
             }
         }
 
+        parser.pollPendingFrame();
+
         sleep_us(100);
     }
 
