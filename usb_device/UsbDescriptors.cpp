@@ -14,6 +14,7 @@ struct UsbConfig {
     std::array<char, kMaxUsbStringLen> manufacturer;
     std::array<char, kMaxUsbStringLen> product;
     std::array<char, kMaxUsbStringLen> serial;
+    std::uint8_t polling_rate;
 };
 
 static_assert(sizeof(UsbConfig) <= FLASH_PAGE_SIZE, "UsbConfig must fit in a flash page");
@@ -24,7 +25,8 @@ UsbConfig g_config = {
     .pid = 0x4001,
     .manufacturer = {},
     .product = {},
-    .serial = {}
+    .serial = {},
+    .polling_rate = 1
 };
 
 bool g_initialized = false;
@@ -53,6 +55,10 @@ void load_config_from_flash() {
         g_config.manufacturer[kMaxUsbStringLen - 1] = '\0';
         g_config.product[kMaxUsbStringLen - 1] = '\0';
         g_config.serial[kMaxUsbStringLen - 1] = '\0';
+        g_config.polling_rate = stored->polling_rate;
+        if (g_config.polling_rate != 1 && g_config.polling_rate != 2 && g_config.polling_rate != 8) {
+            g_config.polling_rate = 1;
+        }
     } else {
         write_default_strings();
     }
@@ -69,6 +75,7 @@ bool is_config_same_in_flash() {
     if (std::memcmp(stored->manufacturer.data(), g_config.manufacturer.data(), kMaxUsbStringLen) != 0) return false;
     if (std::memcmp(stored->product.data(), g_config.product.data(), kMaxUsbStringLen) != 0) return false;
     if (std::memcmp(stored->serial.data(), g_config.serial.data(), kMaxUsbStringLen) != 0) return false;
+    if (stored->polling_rate != g_config.polling_rate) return false;
     return true;
 }
 
@@ -156,6 +163,37 @@ const char* usb_get_serial() {
     return g_config.serial.data();
 }
 
+void usb_set_polling_rate(std::uint8_t rate_ms) {
+    if (!g_initialized) load_config_from_flash();
+    if (rate_ms != 1 && rate_ms != 2 && rate_ms != 8) return;
+    g_config.polling_rate = rate_ms;
+    save_config_to_flash();
+}
+
+std::uint8_t usb_get_polling_rate() {
+    if (!g_initialized) load_config_from_flash();
+    return g_config.polling_rate;
+}
+
+void usb_apply_polling_rate() {
+    if (!g_initialized) load_config_from_flash();
+    std::uint8_t rate = g_config.polling_rate;
+    if (rate != 1 && rate != 2 && rate != 8) rate = 1;
+
+    constexpr std::size_t kConfigDescLen = 9;
+    constexpr std::size_t kHidDescLen = 25;
+    constexpr std::size_t kIntervalOffset = 24;
+
+    std::size_t offsets[] = {
+        kConfigDescLen + kIntervalOffset,
+        kConfigDescLen + kHidDescLen + kIntervalOffset,
+        kConfigDescLen + 2 * kHidDescLen + kIntervalOffset
+    };
+    for (std::size_t off : offsets) {
+        desc_configuration[off] = rate;
+    }
+}
+
 } // namespace usb_device
 
 static tusb_desc_device_t desc_device = {
@@ -199,7 +237,7 @@ static uint8_t const desc_hid_report_media[] = {
 #define EPNUM_HID_MOUSE      0x82
 #define EPNUM_HID_MEDIA      0x83
 
-static uint8_t const desc_configuration[] = {
+static uint8_t desc_configuration[] = {
     TUD_CONFIG_DESCRIPTOR(1, 3, 0, CONFIG_TOTAL_LEN, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 100),
     TUD_HID_DESCRIPTOR(0, 4, false, sizeof(desc_hid_report_keyboard), EPNUM_HID_KEYBOARD, 16, 1),
     TUD_HID_DESCRIPTOR(1, 5, false, sizeof(desc_hid_report_mouse),    EPNUM_HID_MOUSE,    16, 1),

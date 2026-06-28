@@ -21,6 +21,7 @@ constexpr std::uint8_t kCmdSendMsRelMoveData  = 0x15;
 constexpr std::uint8_t kCmdSendMsRelWheelData = 0x16;
 constexpr std::uint8_t kCmdSetParaCfg         = 0x19;
 constexpr std::uint8_t kCmdSetUsbString       = 0x1B;
+constexpr std::uint8_t kCmdSetPollingRate     = 0x1C;
 
 constexpr std::uint8_t kCmdReset              = 0x0F;
 
@@ -43,6 +44,7 @@ constexpr std::size_t kKbMediaDataLen   = 2;
 constexpr std::size_t kMsRelMoveLen     = 2;
 constexpr std::size_t kMsRelWheelLen    = 1;
 constexpr std::size_t kParaCfgLen       = 4;
+constexpr std::size_t kPollingRateLen   = 1;
 constexpr std::size_t kUsbStringMinLen  = 2;
 constexpr std::size_t kCombinedUsbStringLen = 192;
 constexpr std::size_t kLedStatusLen     = 1;
@@ -111,6 +113,10 @@ struct LedStatusData {
     std::uint8_t led_byte;
 };
 
+struct PollingRateData {
+    std::uint8_t rate_ms;
+};
+
 struct PendingFrame {
     std::uint8_t index;
     std::uint8_t cmd;
@@ -133,6 +139,7 @@ public:
     using LedStatusCallback    = std::function<void(const LedStatusData&)>;
     using GetUsbStringCallback = std::function<void()>;
     using ResetCallback         = std::function<void()>;
+    using PollingRateCallback   = std::function<void(const PollingRateData&)>;
 
     ProtocolParser();
     ~ProtocolParser() = default;
@@ -155,6 +162,7 @@ public:
     void setLedStatusCallback(LedStatusCallback cb);
     void setGetUsbStringCallback(GetUsbStringCallback cb);
     void setResetCallback(ResetCallback cb);
+    void setPollingRateCallback(PollingRateCallback cb);
 
     bool hasReceivedValidFrame() const { return frame_received_; }
     void clearFrameReceivedFlag() { frame_received_ = false; }
@@ -196,6 +204,7 @@ private:
     LedStatusCallback led_status_cb_;
     GetUsbStringCallback get_usb_string_cb_;
     ResetCallback reset_cb_;
+    PollingRateCallback polling_rate_cb_;
 
     void dispatchCommand(std::uint8_t cmd, const std::uint8_t* data, std::uint8_t len);
     void handleIndexedFrame(std::uint8_t index, std::uint8_t cmd,

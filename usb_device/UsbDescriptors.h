@@ -40,6 +40,10 @@ const char* usb_get_manufacturer();
 const char* usb_get_product();
 const char* usb_get_serial();
 
+void usb_set_polling_rate(std::uint8_t rate_ms);
+std::uint8_t usb_get_polling_rate();
+void usb_apply_polling_rate();
+
 } // namespace usb_device
 
 #endif // USB_DEVICE_USB_DESCRIPTORS_H

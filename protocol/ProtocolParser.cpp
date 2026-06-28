@@ -88,6 +88,10 @@ void ProtocolParser::setResetCallback(ResetCallback cb) {
     reset_cb_ = std::move(cb);
 }
 
+void ProtocolParser::setPollingRateCallback(PollingRateCallback cb) {
+    polling_rate_cb_ = std::move(cb);
+}
+
 void ProtocolParser::reset() {
     state_ = State::WaitHdr1;
     data_recv_ = 0;
@@ -112,6 +116,7 @@ static std::uint8_t getFixedDataLen(std::uint8_t cmd) {
         case kCmdSendMsRelWheelData: return kMsRelWheelLen;
         case kCmdSetParaCfg:         return kParaCfgLen;
         case kCmdSetUsbString:       return kCombinedUsbStringLen;
+        case kCmdSetPollingRate:     return kPollingRateLen;
         case kCmdLedStatus:          return kLedStatusLen;
         default:                     return 0;
     }
@@ -517,6 +522,15 @@ void ProtocolParser::dispatchCommand(std::uint8_t cmd, const std::uint8_t* data,
 
         case kCmdReset: {
             if (reset_cb_) reset_cb_();
+            break;
+        }
+
+        case kCmdSetPollingRate: {
+            if (len >= kPollingRateLen) {
+                PollingRateData pr{};
+                pr.rate_ms = data[0];
+                if (polling_rate_cb_) polling_rate_cb_(pr);
+            }
             break;
         }
 

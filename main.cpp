@@ -95,6 +95,7 @@ int main() {
     }
 
     usb_device::usb_descriptors_init();
+    usb_device::usb_apply_polling_rate();
 
     usb_device::UsbHidDevice hid_device;
     hid_device.init();
@@ -252,6 +253,12 @@ int main() {
     });
 
     parser.setResetCallback([&]() {
+        gpio_put(kGreenLedPin, 0);
+        watchdog_reboot(0, 0, 0);
+    });
+
+    parser.setPollingRateCallback([&](const protocol::PollingRateData& pr) {
+        usb_device::usb_set_polling_rate(pr.rate_ms);
         gpio_put(kGreenLedPin, 0);
         watchdog_reboot(0, 0, 0);
     });
